@@ -24,30 +24,30 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\新建文件夹\MLMatrix.h">
-      <Filter>Header Files\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\新建文件夹\MLPlane.h">
-      <Filter>Header Files\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\新建文件夹\MLUtility.h">
-      <Filter>Header Files\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\新建文件夹\MLVector.h">
-      <Filter>Header Files\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="D3DUtility.h">
+    <ClInclude Include="D3D\D3DUtility.h">
       <Filter>Header Files\D3D</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MLMatrix.h">
+      <Filter>Header Files\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MLPlane.h">
+      <Filter>Header Files\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MLUtility.h">
+      <Filter>Header Files\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MLVector.h">
+      <Filter>Header Files\Math</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\新建文件夹\MLMatrix.cpp">
+    <ClCompile Include="Math\MLMatrix.cpp">
       <Filter>Source Files\Math</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\新建文件夹\MLUtility.cpp">
+    <ClCompile Include="Math\MLUtility.cpp">
       <Filter>Source Files\Math</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\新建文件夹\MLVector.cpp">
+    <ClCompile Include="Math\MLVector.cpp">
       <Filter>Source Files\Math</Filter>
     </ClCompile>
   </ItemGroup>
