@@ -150,6 +150,7 @@
     <ClInclude Include="..\..\新建文件夹\MLPlane.h" />
     <ClInclude Include="..\..\新建文件夹\MLUtility.h" />
     <ClInclude Include="..\..\新建文件夹\MLVector.h" />
+    <ClInclude Include="D3DUtility.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\新建文件夹\MLMatrix.cpp" />
