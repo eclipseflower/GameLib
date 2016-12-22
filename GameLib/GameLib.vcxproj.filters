@@ -22,6 +22,9 @@
     <Filter Include="Header Files\D3D">
       <UniqueIdentifier>{fa41eb4a-9fcd-402d-8fcc-c886e68e9258}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\D3D">
+      <UniqueIdentifier>{761ce76d-326b-47c2-9455-9febf6a3e5bd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="D3D\D3DUtility.h">
@@ -49,6 +52,9 @@
     </ClCompile>
     <ClCompile Include="Math\MLVector.cpp">
       <Filter>Source Files\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="D3D\D3DUtility.cpp">
+      <Filter>Source Files\D3D</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

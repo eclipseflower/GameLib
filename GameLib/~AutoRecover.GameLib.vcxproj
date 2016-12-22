@@ -156,7 +156,6 @@
     <ClInclude Include="Math\MLVector.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="D3D\D3DUtility.cpp" />
     <ClCompile Include="Math\MLMatrix.cpp" />
     <ClCompile Include="Math\MLUtility.cpp" />
     <ClCompile Include="Math\MLVector.cpp" />
