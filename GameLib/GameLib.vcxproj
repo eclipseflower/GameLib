@@ -146,6 +146,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\新建文件夹\MLMatrix.h" />
+    <ClInclude Include="..\..\新建文件夹\MLPlane.h" />
+    <ClInclude Include="..\..\新建文件夹\MLUtility.h" />
+    <ClInclude Include="..\..\新建文件夹\MLVector.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\新建文件夹\MLMatrix.cpp" />
+    <ClCompile Include="..\..\新建文件夹\MLUtility.cpp" />
+    <ClCompile Include="..\..\新建文件夹\MLVector.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
