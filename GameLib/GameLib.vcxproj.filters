@@ -56,5 +56,8 @@
     <ClCompile Include="D3D\D3DUtility.cpp">
       <Filter>Source Files\D3D</Filter>
     </ClCompile>
+    <ClCompile Include="Demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
