@@ -26,4 +26,9 @@ MLMatrix4 *Matrix_RotationZ(MLMatrix4 *pOut, float angle);
 MLMatrix4 *Matrix_Scaling(MLMatrix4 *pOut, float sx, float sy, float sz);
 
 // param: plane and point
+// out: np + d
 float Plane_DotCoord(const MLPlane *pP, const MLVector3 *pV);
+
+// view matrix
+MLMatrix4 *Matrix_LookAt(MLMatrix4 *pOut, const MLVector3 *pEye, const MLVector3 *pAt,
+	const MLVector3 *pUp);

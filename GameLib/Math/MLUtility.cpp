@@ -79,3 +79,20 @@ MLMatrix4 *Matrix_Scaling(MLMatrix4 *pOut, float sx, float sy, float sz) {
 float Plane_DotCoord(const MLPlane *pP, const MLVector3 *pV) {
 	return Vec3_Dot(&MLVector3(pP->a, pP->b, pP->c), pV) + pP->d;
 }
+
+MLMatrix4 *Matrix_LookAt(MLMatrix4 *pOut, const MLVector3 *pEye, const MLVector3 *pAt,
+	const MLVector3 *pUp) {
+	MLVector3 xaxis, yaxis, zaxis;
+	Vec3_Normalize(&zaxis, &(*pAt - *pEye));
+	Vec3_Cross(&xaxis, pUp, &zaxis);
+	Vec3_Normalize(&xaxis, &xaxis);
+	Vec3_Cross(&yaxis, &zaxis, &xaxis);
+
+	*pOut = MLMatrix4(
+		xaxis.x, yaxis.x, zaxis.x, 0,
+		xaxis.y, yaxis.y, zaxis.y, 0,
+		xaxis.z, yaxis.z, zaxis.z, 0,
+		-Vec3_Dot(pEye, &xaxis), -Vec3_Dot(pEye, &yaxis), -Vec3_Dot(pEye, &zaxis), 1
+	);
+	return pOut;
+}
