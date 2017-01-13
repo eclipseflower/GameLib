@@ -32,3 +32,6 @@ float Plane_DotCoord(const MLPlane *pP, const MLVector3 *pV);
 // view matrix
 MLMatrix4 *Matrix_LookAt(MLMatrix4 *pOut, const MLVector3 *pEye, const MLVector3 *pAt,
 	const MLVector3 *pUp);
+
+// projection matrix
+MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, float zn, float zf);

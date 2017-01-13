@@ -96,3 +96,14 @@ MLMatrix4 *Matrix_LookAt(MLMatrix4 *pOut, const MLVector3 *pEye, const MLVector3
 	);
 	return pOut;
 }
+
+MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, float zn, float zf) {
+	float cot = 1.0f / tanf(fovY * 0.5f);
+	*pOut = MLMatrix4(
+		cot / Aspect, 0, 0, 0,
+		0, cot, 0, 0,
+		0, 0, zf / (zf - zn), 1,
+		0, 0, zf * zn / (zn - zf), 0
+	);
+	return pOut;
+}
