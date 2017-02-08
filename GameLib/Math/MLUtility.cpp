@@ -107,3 +107,22 @@ MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, floa
 	);
 	return pOut;
 }
+
+MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float x, float y, int width, int height, 
+	float minZ = 0.0f, float maxZ = 1.0f) {
+	float halfW = width * 0.5f;
+	float halfH = height * 0.5f;
+	*pOut = MLMatrix4(
+		halfW, 0, 0, 0,
+		0, -halfH, 0, 0,
+		0, 0, maxZ - minZ, 0,
+		x + halfW, y + halfH, minZ, 1
+	);
+	return pOut;
+}
+
+// test backface culling
+// in view coordinate system is enough
+bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3) {
+	return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
+}

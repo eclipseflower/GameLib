@@ -35,3 +35,10 @@ MLMatrix4 *Matrix_LookAt(MLMatrix4 *pOut, const MLVector3 *pEye, const MLVector3
 
 // projection matrix
 MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, float zn, float zf);
+
+// viewport matrix
+MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float screenx, float screeny, int width, int height,
+	float minZ = 0.0f, float maxZ = 1.0f);
+
+// backface culling
+bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3);
