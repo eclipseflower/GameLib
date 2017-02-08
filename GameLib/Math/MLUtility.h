@@ -41,4 +41,4 @@ MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float screenx, float screeny, int wi
 	float minZ = 0.0f, float maxZ = 1.0f);
 
 // backface culling
-bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3)
+bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3);
