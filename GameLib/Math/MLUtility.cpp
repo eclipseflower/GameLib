@@ -40,7 +40,7 @@ MLMatrix4 *Matrix_RotationX(MLMatrix4 *pOut, float angle) {
 	*pOut = MLMatrix4(
 		1, 0, 0, 0,
 		0, cosf(angle), sinf(angle), 0,
-		0, -sinf(angle), cos(angle), 0,
+		0, -sinf(angle), cosf(angle), 0,
 		0, 0, 0, 1
 	);
 	return pOut;
@@ -109,7 +109,7 @@ MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, floa
 }
 
 MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float x, float y, int width, int height, 
-	float minZ = 0.0f, float maxZ = 1.0f) {
+	float minZ, float maxZ) {
 	float halfW = width * 0.5f;
 	float halfH = height * 0.5f;
 	*pOut = MLMatrix4(
