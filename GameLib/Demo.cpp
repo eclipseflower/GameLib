@@ -3,6 +3,9 @@
 IDirect3DDevice9 *Device = 0;
 IDirect3DVertexBuffer9 *VB = 0;
 IDirect3DIndexBuffer9 *IB = 0;
+ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
+
+D3DXMATRIX ObjWorldMatrices[5];
 
 const int Width = 800;
 const int Height = 600;
@@ -16,7 +19,7 @@ struct Vertex {
 	static const DWORD FVF = D3DFVF_XYZ;
 };
 
-bool Setup() {
+bool Cube_Setup() {
 	Device->CreateVertexBuffer(8 * sizeof(Vertex), D3DUSAGE_WRITEONLY, Vertex::FVF, D3DPOOL_MANAGED,
 		&VB, 0);
 	Device->CreateIndexBuffer(36 * sizeof(WORD), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_MANAGED,
@@ -65,7 +68,7 @@ bool Setup() {
 	return true;
 }
 
-bool Display(float timeDelta)
+bool Cube_Display(float timeDelta)
 {
 	if (Device) // Only use Device methods if we have a valid device.
 	{
@@ -100,6 +103,57 @@ bool Display(float timeDelta)
 	return true;
 }
 
+bool D3DXCreate_Setup() {
+	D3DXCreateTeapot(Device, &Objects[0], 0);
+	D3DXCreateBox(Device, 2.0f, 2.0f, 2.0f, &Objects[1], 0);
+	D3DXCreateCylinder(Device, 1.0f, 1.0f, 3.0f, 10, 10, &Objects[2], 0);
+	D3DXCreateTorus(Device, 1.0f, 3.0f, 10, 10, &Objects[3], 0);
+	D3DXCreateSphere(Device, 1.0f, 10, 10, &Objects[4], 0);
+
+	D3DXMatrixTranslation(&ObjWorldMatrices[0], 0.0f, 0.0f, 0.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[1], -5.0f, 0.0f, 5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[2], 5.0f, 0.0f, 5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[3], -5.0f, 0.0f, -5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[4], 5.0f, 0.0f, -5.0f);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+
+	Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+	return true;
+}
+
+bool D3DXCreate_Display(float timeDelta) {
+	static float angle = (3.0f * D3DX_PI) / 2.0f;
+	static float cameraHeight = 0.0f;
+	static float cameraHeightDirection = 5.0f;
+
+	D3DXVECTOR3 position(cosf(angle) * 10.0f, cameraHeight, sinf(angle) * 10.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
+	D3DXMATRIX V;
+	D3DXMatrixLookAtLH(&V, &position, &target, &up);
+	Device->SetTransform(D3DTS_VIEW, &V);
+
+	angle += timeDelta;
+	if (angle > D3DX_PI * 2.0f)
+		angle = 0.0f;
+	cameraHeight += cameraHeightDirection * timeDelta;
+	if (cameraHeight >= 10.0f || cameraHeight <= -10.0f)
+		cameraHeightDirection = -cameraHeightDirection;
+
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+	Device->BeginScene();
+	for (int i = 0; i < 5; i++) {
+		Device->SetTransform(D3DTS_WORLD, &ObjWorldMatrices[i]);
+		Objects[i]->DrawSubset(0);
+	}
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 //
 // WinMain
 //
@@ -116,8 +170,8 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Setup();
-	D3DLib::EnterMsgLoop(Display);
+	D3DXCreate_Setup();
+	D3DLib::EnterMsgLoop(D3DXCreate_Display);
 
 	Device->Release();
 
