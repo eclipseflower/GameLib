@@ -70,7 +70,8 @@ bool Display(float timeDelta)
 	if (Device) // Only use Device methods if we have a valid device.
 	{
 		D3DXMATRIX Rx, Ry;
-		D3DXMatrixRotationX(&Rx, D3DX_PI * 0.25f);
+		static float x = D3DX_PI * 0.25f;
+		D3DXMatrixRotationX(&Rx, x);
 		static float y = 0.0f;
 		D3DXMatrixRotationY(&Ry, y);
 		y += timeDelta;
@@ -107,9 +108,9 @@ int WINAPI WinMain(HINSTANCE hinstance,
 	PSTR cmdLine,
 	int showCmd)
 {
-	HWND hwnd = D3DLib::InitWindow(hinstance, 640, 480, L"Demo");
+	HWND hwnd = D3DLib::InitWindow(hinstance, Width, Height, L"Demo");
 	if (!D3DLib::InitD3D(hinstance, hwnd,
-		640, 480, true, D3DDEVTYPE_HAL, &Device))
+		Width, Height, true, D3DDEVTYPE_HAL, &Device))
 	{
 		::MessageBox(0, L"InitD3D() - FAILED", 0, 0);
 		return 0;
