@@ -3,7 +3,9 @@
 IDirect3DDevice9 *Device = 0;
 IDirect3DVertexBuffer9 *VB = 0;
 IDirect3DIndexBuffer9 *IB = 0;
+IDirect3DVertexBuffer9 *Triangle = 0;
 ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
+ID3DXMesh *Teapot = 0;
 
 D3DXMATRIX ObjWorldMatrices[5];
 
@@ -154,6 +156,69 @@ bool D3DXCreate_Display(float timeDelta) {
 	return true;
 }
 
+bool Teapot_Setup() {
+	D3DXCreateTeapot(Device, &Teapot, 0);
+	D3DXVECTOR3 position(0.0f, 0.0f, -3.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
+	D3DXMATRIX V;
+	D3DXMatrixLookAtLH(&V, &position, &target, &up);
+	Device->SetTransform(D3DTS_VIEW, &V);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+
+	Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+	return true;
+}
+
+bool Teapot_Display(float timeDelta) {
+	D3DXMATRIX Ry;
+	static float y = 0.0f;
+	D3DXMatrixRotationY(&Ry, y);
+	y += timeDelta;
+	if (y >= D3DX_PI * 2.0f)
+		y = 0.0f;
+	Device->SetTransform(D3DTS_WORLD, &Ry);
+
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+	Device->BeginScene();
+	Teapot->DrawSubset(0);
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
+bool Triangle_Setup() {
+	Device->CreateVertexBuffer(3 * sizeof(Vertex), D3DUSAGE_WRITEONLY, Vertex::FVF, D3DPOOL_MANAGED,
+		&Triangle, 0);
+	Vertex *vertices;
+	Triangle->Lock(0, 0, (void **)&vertices, 0);
+	vertices[0] = Vertex(-1.0f, 0.0f, 2.0f);
+	vertices[1] = Vertex(0.0f, 1.0f, 2.0f);
+	vertices[2] = Vertex(1.0f, 0.0f, 2.0f);
+	Triangle->Unlock();
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+
+	Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+	return true;
+}
+
+bool Triangle_Display(float timeDelta) {
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+	Device->BeginScene();
+	Device->SetStreamSource(0, Triangle, 0, sizeof(Vertex));
+	Device->SetFVF(Vertex::FVF);
+	Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 //
 // WinMain
 //
@@ -170,8 +235,8 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	D3DXCreate_Setup();
-	D3DLib::EnterMsgLoop(D3DXCreate_Display);
+	Triangle_Setup();
+	D3DLib::EnterMsgLoop(Triangle_Display);
 
 	Device->Release();
 
