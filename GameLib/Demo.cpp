@@ -4,6 +4,7 @@ IDirect3DDevice9 *Device = 0;
 IDirect3DVertexBuffer9 *VB = 0;
 IDirect3DIndexBuffer9 *IB = 0;
 IDirect3DVertexBuffer9 *Triangle = 0;
+IDirect3DVertexBuffer9 *Pyramid = 0;
 ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
 ID3DXMesh *Teapot = 0;
 
@@ -32,6 +33,17 @@ struct ColorVertex {
 	static const DWORD FVF = D3DFVF_XYZ | D3DFVF_DIFFUSE;
 };
 
+struct LightVertex {
+	LightVertex() {}
+	LightVertex(float x, float y, float z, float nx, float ny, float nz) {
+		_x = x; _y = y; _z = z; _nx = nx; _ny = ny; _nz = nz;
+	}
+	float _x, _y, _z;
+	float _nx, _ny, _nz;
+	static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL;
+};
+
+// chapter 3
 bool Cube_Setup() {
 	Device->CreateVertexBuffer(8 * sizeof(Vertex), D3DUSAGE_WRITEONLY, Vertex::FVF, D3DPOOL_MANAGED,
 		&VB, 0);
@@ -230,6 +242,7 @@ bool Triangle_Display(float timeDelta) {
 	return true;
 }
 
+// chapter 4
 bool Color_Setup() {
 	Device->CreateVertexBuffer(3 * sizeof(ColorVertex), D3DUSAGE_WRITEONLY, ColorVertex::FVF,
 		D3DPOOL_MANAGED, &Triangle, 0);
@@ -266,6 +279,79 @@ bool Color_Display(float timeDelta) {
 	return true;
 }
 
+// chapter 5
+bool Pyramid_Setup() {
+	Device->SetRenderState(D3DRS_LIGHTING, true);
+	Device->CreateVertexBuffer(12 * sizeof(LightVertex), D3DUSAGE_WRITEONLY, LightVertex::FVF, 
+		D3DPOOL_MANAGED, &Pyramid, 0);
+	LightVertex *v;
+	Pyramid->Lock(0, 0, (void **)&v, 0);
+	v[0] = LightVertex(-1.0f, 0.0f, -1.0f, 0.0f, 0.707f, -0.707f);
+	v[1] = LightVertex(0.0f, 1.0f, 0.0f, 0.0f, 0.707f, -0.707f);
+	v[2] = LightVertex(1.0f, 0.0f, -1.0f, 0.0f, 0.707f, -0.707f);
+	v[3] = LightVertex(-1.0f, 0.0f, 1.0f, -0.707f, 0.707f, 0.0f);
+	v[4] = LightVertex(0.0f, 1.0f, 0.0f, -0.707f, 0.707f, 0.0f);
+	v[5] = LightVertex(-1.0f, 0.0f, -1.0f, -0.707f, 0.707f, 0.0f);
+	v[6] = LightVertex(1.0f, 0.0f, -1.0f, 0.707f, 0.707f, 0.0f);
+	v[7] = LightVertex(0.0f, 1.0f, 0.0f, 0.707f, 0.707f, 0.0f);
+	v[8] = LightVertex(1.0f, 0.0f, 1.0f, 0.707f, 0.707f, 0.0f);
+	v[9] = LightVertex(1.0f, 0.0f, 1.0f, 0.0f, 0.707f, 0.707f);
+	v[10] = LightVertex(0.0f, 1.0f, 0.0f, 0.0f, 0.707f, 0.707f);
+	v[11] = LightVertex(-1.0f, 0.0f, 1.0f, 0.0f, 0.707f, 0.707f);
+	Pyramid->Unlock();
+
+	D3DMATERIAL9 mtrl;
+	mtrl.Ambient = D3DLib::WHITE;
+	mtrl.Diffuse = D3DLib::WHITE;
+	mtrl.Specular = D3DLib::WHITE;
+	mtrl.Emissive = D3DLib::BLACK;
+	mtrl.Power = 5.0f;
+	Device->SetMaterial(&mtrl);
+
+	D3DLIGHT9 dir;
+	ZeroMemory(&dir, sizeof(dir));
+	dir.Type = D3DLIGHT_DIRECTIONAL;
+	dir.Diffuse = D3DLib::WHITE;
+	dir.Specular = D3DLib::WHITE * 0.3f;
+	dir.Ambient = D3DLib::WHITE * 0.6f;
+	dir.Direction = D3DXVECTOR3(1.0f, 0.0f, 0.0f);
+	Device->SetLight(0, &dir);
+	Device->LightEnable(0, true);
+	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	Device->SetRenderState(D3DRS_SPECULARENABLE, true);
+
+	D3DXVECTOR3 pos(0.0f, 1.0f, -3.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
+	D3DXMATRIX V;
+	D3DXMatrixLookAtLH(&V, &pos, &target, &up);
+	Device->SetTransform(D3DTS_VIEW, &V);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+	return true;
+}
+
+bool Pyramid_Display(float timeDelta) {
+	D3DXMATRIX Ry;
+	static float y = 0.0f;
+	D3DXMatrixRotationY(&Ry, y);
+	y += timeDelta;
+	if (y > D3DX_PI * 2.0f)
+		y = 0.0f;
+	Device->SetTransform(D3DTS_WORLD, &Ry);
+
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
+	Device->BeginScene();
+	Device->SetStreamSource(0, Pyramid, 0, sizeof(LightVertex));
+	Device->SetFVF(LightVertex::FVF);
+	Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 4);
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 //
 // WinMain
 //
@@ -282,8 +368,8 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Color_Setup();
-	D3DLib::EnterMsgLoop(Color_Display);
+	Pyramid_Setup();
+	D3DLib::EnterMsgLoop(Pyramid_Display);
 
 	Device->Release();
 
