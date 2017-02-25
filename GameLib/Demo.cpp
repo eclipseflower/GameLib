@@ -353,7 +353,7 @@ bool Pyramid_Display(float timeDelta) {
 	return true;
 }
 
-bool Directional_Setup() {
+bool Light_Setup(D3DLIGHTTYPE type) {
 	D3DXCreateTeapot(Device, &Objects[0], 0);
 	D3DXCreateBox(Device, 2.0f, 2.0f, 2.0f, &Objects[1], 0);
 	D3DXCreateCylinder(Device, 1.0f, 1.0f, 3.0f, 10, 10, &Objects[2], 0);
@@ -374,15 +374,44 @@ bool Directional_Setup() {
 
 	D3DLIGHT9 light;
 	ZeroMemory(&light, sizeof(light));
-	light.Type = D3DLIGHT_DIRECTIONAL;
-	light.Ambient = D3DLib::WHITE * 0.6f;
-	light.Diffuse = D3DLib::WHITE;
-	light.Specular = D3DLib::WHITE * 0.6f;
-	light.Direction = D3DXVECTOR3(1.0f, 0.0f, 0.25f);
+	if (type == D3DLIGHT_DIRECTIONAL) {
+		light.Type = D3DLIGHT_DIRECTIONAL;
+		light.Ambient = D3DLib::WHITE * 0.6f;
+		light.Diffuse = D3DLib::WHITE;
+		light.Specular = D3DLib::WHITE * 0.6f;
+		light.Direction = D3DXVECTOR3(1.0f, 0.0f, 0.25f);
+	}
+	else if (type == D3DLIGHT_POINT) {
+		light.Type = D3DLIGHT_POINT;
+		light.Ambient = D3DLib::WHITE * 0.6f;
+		light.Diffuse = D3DLib::WHITE;
+		light.Specular = D3DLib::WHITE * 0.6f;
+		light.Position = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+		light.Range = 1000.0f;
+		light.Falloff = 1.0f;
+		light.Attenuation0 = 1.0f;
+		light.Attenuation1 = 0.0f;
+		light.Attenuation2 = 0.0f;
+	}
+	else if (type == D3DLIGHT_SPOT) {
+		light.Type = D3DLIGHT_SPOT;
+		light.Ambient = D3DLib::WHITE * 0.0f;
+		light.Diffuse = D3DLib::WHITE;
+		light.Specular = D3DLib::WHITE * 0.6f;
+		light.Position = D3DXVECTOR3(0.0f, 0.0f, -5.0f);
+		light.Direction = D3DXVECTOR3(0.0f, 0.0f, 1.0f);
+		light.Range = 1000.0f;
+		light.Falloff = 1.0f;
+		light.Attenuation0 = 1.0f;
+		light.Attenuation1 = 0.0f;
+		light.Attenuation2 = 0.0f;
+		light.Theta = 0.4f;
+		light.Phi = 0.9f;
+	}
 	Device->SetLight(0, &light);
 	Device->LightEnable(0, true);
 	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
-	Device->SetRenderState(D3DRS_SPECULARENABLE, false);
+	Device->SetRenderState(D3DRS_SPECULARENABLE, true);
 
 	D3DXMATRIX proj;
 	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.25f, (float)Width / (float)Height, 1.0f, 1000.0f);
@@ -390,7 +419,7 @@ bool Directional_Setup() {
 	return true;
 }
 
-bool Directional_Display(float timeDelta) {
+bool Light_Display(float timeDelta) {
 	static float angle = (3.0f * D3DX_PI) / 2.0f;
 	static float height = 5.0f;
 
@@ -443,8 +472,8 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Directional_Setup();
-	D3DLib::EnterMsgLoop(Directional_Display);
+	Light_Setup(D3DLIGHT_SPOT);
+	D3DLib::EnterMsgLoop(Light_Display);
 
 	Device->Release();
 
