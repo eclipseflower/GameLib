@@ -56,10 +56,13 @@
     <ClCompile Include="D3D\D3DUtility.cpp">
       <Filter>Source Files\D3D</Filter>
     </ClCompile>
-    <ClCompile Include="Demo.cpp">
+    <ClCompile Include="FixPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FixPipeline.cpp">
+    <ClCompile Include="D3DDemo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

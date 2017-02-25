@@ -456,11 +456,7 @@ bool Light_Display(float timeDelta) {
 	return true;
 }
 
-//
-// WinMain
-//
-/*
-int WINAPI WinMain(HINSTANCE hinstance,
+int D3DDemo(HINSTANCE hinstance,
 	HINSTANCE prevInstance,
 	PSTR cmdLine,
 	int showCmd)
@@ -473,11 +469,10 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Light_Setup(D3DLIGHT_SPOT);
-	D3DLib::EnterMsgLoop(Light_Display);
+	Cube_Setup();
+	D3DLib::EnterMsgLoop(Cube_Display);
 
 	Device->Release();
 
 	return 0;
 }
-*/
