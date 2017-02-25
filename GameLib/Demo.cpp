@@ -7,6 +7,7 @@ IDirect3DVertexBuffer9 *Triangle = 0;
 IDirect3DVertexBuffer9 *Pyramid = 0;
 ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
 ID3DXMesh *Teapot = 0;
+D3DMATERIAL9 Mtrl[5];
 
 D3DXMATRIX ObjWorldMatrices[5];
 D3DXMATRIX WorldMatrix;
@@ -352,6 +353,80 @@ bool Pyramid_Display(float timeDelta) {
 	return true;
 }
 
+bool Directional_Setup() {
+	D3DXCreateTeapot(Device, &Objects[0], 0);
+	D3DXCreateBox(Device, 2.0f, 2.0f, 2.0f, &Objects[1], 0);
+	D3DXCreateCylinder(Device, 1.0f, 1.0f, 3.0f, 10, 10, &Objects[2], 0);
+	D3DXCreateTorus(Device, 1.0f, 3.0f, 10, 10, &Objects[3], 0);
+	D3DXCreateSphere(Device, 1.0f, 10, 10, &Objects[4], 0);
+
+	D3DXMatrixTranslation(&ObjWorldMatrices[0], 0.0f, 0.0f, 0.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[1], -5.0f, 0.0f, 5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[2], 5.0f, 0.0f, 5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[3], -5.0f, 0.0f, -5.0f);
+	D3DXMatrixTranslation(&ObjWorldMatrices[4], 5.0f, 0.0f, -5.0f);
+
+	Mtrl[0] = D3DLib::InitMaterial(D3DLib::RED, D3DLib::RED, D3DLib::RED, D3DLib::BLACK, 2.0f);
+	Mtrl[1] = D3DLib::InitMaterial(D3DLib::BLUE, D3DLib::BLUE, D3DLib::BLUE, D3DLib::BLACK, 2.0f);
+	Mtrl[2] = D3DLib::InitMaterial(D3DLib::GREEN, D3DLib::GREEN, D3DLib::GREEN, D3DLib::BLACK, 2.0f);
+	Mtrl[3] = D3DLib::InitMaterial(D3DLib::YELLOW, D3DLib::YELLOW, D3DLib::YELLOW, D3DLib::BLACK, 2.0f);
+	Mtrl[4] = D3DLib::InitMaterial(D3DLib::CYAN, D3DLib::CYAN, D3DLib::CYAN, D3DLib::CYAN, 2.0f);
+
+	D3DLIGHT9 light;
+	ZeroMemory(&light, sizeof(light));
+	light.Type = D3DLIGHT_DIRECTIONAL;
+	light.Ambient = D3DLib::WHITE * 0.6f;
+	light.Diffuse = D3DLib::WHITE;
+	light.Specular = D3DLib::WHITE * 0.6f;
+	light.Direction = D3DXVECTOR3(1.0f, 0.0f, 0.25f);
+	Device->SetLight(0, &light);
+	Device->LightEnable(0, true);
+	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	Device->SetRenderState(D3DRS_SPECULARENABLE, false);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.25f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+	return true;
+}
+
+bool Directional_Display(float timeDelta) {
+	static float angle = (3.0f * D3DX_PI) / 2.0f;
+	static float height = 5.0f;
+
+	if (GetAsyncKeyState(VK_LEFT) & 0x8000f)
+		angle -= 0.5f * timeDelta;
+
+	if (GetAsyncKeyState(VK_RIGHT) & 0x8000f)
+		angle += 0.5f * timeDelta;
+
+	if (GetAsyncKeyState(VK_UP) & 0x8000f)
+		height += 5.0f * timeDelta;
+
+	if (GetAsyncKeyState(VK_DOWN) & 0x8000f)
+		height -= 5.0f * timeDelta;
+
+	D3DXVECTOR3 position(cosf(angle) * 7.0f, height, sinf(angle) * 7.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
+	D3DXMATRIX V;
+	D3DXMatrixLookAtLH(&V, &position, &target, &up);
+	Device->SetTransform(D3DTS_VIEW, &V);
+
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
+	Device->BeginScene();
+
+	for(int i = 0; i < 5; i++) {
+		Device->SetMaterial(&Mtrl[i]);
+		Device->SetTransform(D3DTS_WORLD, &ObjWorldMatrices[i]);
+		Objects[i]->DrawSubset(0);
+	}
+
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 //
 // WinMain
 //
@@ -368,8 +443,8 @@ int WINAPI WinMain(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Pyramid_Setup();
-	D3DLib::EnterMsgLoop(Pyramid_Display);
+	Directional_Setup();
+	D3DLib::EnterMsgLoop(Directional_Display);
 
 	Device->Release();
 

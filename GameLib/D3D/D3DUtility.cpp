@@ -123,3 +123,14 @@ LRESULT CALLBACK D3DLib::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 	}
 	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+
+// Init Material
+D3DMATERIAL9 D3DLib::InitMaterial(D3DXCOLOR a, D3DXCOLOR d, D3DXCOLOR s, D3DXCOLOR e, float p) {
+	D3DMATERIAL9 mtrl;
+	mtrl.Ambient = a;
+	mtrl.Diffuse = d;
+	mtrl.Specular = s;
+	mtrl.Emissive = e;
+	mtrl.Power = p;
+	return mtrl;
+}
