@@ -459,6 +459,7 @@ bool Light_Display(float timeDelta) {
 //
 // WinMain
 //
+/*
 int WINAPI WinMain(HINSTANCE hinstance,
 	HINSTANCE prevInstance,
 	PSTR cmdLine,
@@ -479,3 +480,4 @@ int WINAPI WinMain(HINSTANCE hinstance,
 
 	return 0;
 }
+*/
