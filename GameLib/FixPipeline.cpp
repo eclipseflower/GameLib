@@ -1,9 +1,39 @@
 // Fix Pipeline implementation, just a demo
 // Reference: https://github.com/skywind3000/mini3d
 #include <Windows.h>
+#include "Math/MLUtility.h"
+
+const int Width = 800;
+const int Height = 600;
+const float PI = 3.1415927f;
+
+const int TRANSFORM_VIEW = 1;
+const int TRANSFORM_PROJECTION = 2;
+
+const int FILL_WIREFRAME = 1;
 
 struct Device {
+	// view matrix
+	MLMatrix4 _view;
+	// projection matrix
+	MLMatrix4 _proj;
+	// render state
+	int _rstate;
 
+	void SetTransform(int state, const MLMatrix4 *m) {
+		switch (state) {
+		case TRANSFORM_VIEW:
+			_view = *m;
+			break;
+		case TRANSFORM_PROJECTION:
+			_proj = *m;
+			break;
+		}
+	}
+	
+	void SetRenderState(int value) {
+		_rstate = value;
+	}
 };
 
 struct Vertex {
@@ -51,12 +81,26 @@ void InitCube(Vertex *vb, int *ib) {
 }
 
 int FixPipeline(HINSTANCE hinstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
+	// create device
+	Device device;
 	// create vertex buffer
 	Vertex *vb = new Vertex[8];
 	// create index buffer
 	int *ib = new int[36];
 	// fill vertex buffer and index buffer
 	InitCube(vb, ib);
-	// Set view matrix
+	// set view matrix
+	MLVector3 pos(0.0f, 0.0f, -5.0f);
+	MLVector3 target(0.0f, 0.0f, 0.0f);
+	MLVector3 up(0.0f, 1.0f, 0.0f);
+	MLMatrix4 V;
+	Matrix_LookAt(&V, &pos, &target, &up);
+	device.SetTransform(TRANSFORM_VIEW, &V);
+	// set projection matrix
+	MLMatrix4 proj;
+	Matrix_PerspectiveFov(&proj, PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	device.SetTransform(TRANSFORM_PROJECTION, &proj);
+	// set render state
+	device.SetRenderState(FILL_WIREFRAME);
 	return 0;
 }
