@@ -7,13 +7,16 @@ const int Width = 800;
 const int Height = 600;
 const float PI = 3.1415927f;
 
-const int TRANSFORM_VIEW = 1;
-const int TRANSFORM_PROJECTION = 2;
+const int TRANSFORM_WORLD = 1;
+const int TRANSFORM_VIEW = 2;
+const int TRANSFORM_PROJECTION = 4;
 
 const int FILL_WIREFRAME = 1;
 
 // create device
 struct Device {
+	// world matrix
+	MLMatrix4 _world;
 	// view matrix
 	MLMatrix4 _view;
 	// projection matrix
@@ -23,6 +26,9 @@ struct Device {
 
 	void SetTransform(int state, const MLMatrix4 *m) {
 		switch (state) {
+		case TRANSFORM_WORLD:
+			_world = *m;
+			break;
 		case TRANSFORM_VIEW:
 			_view = *m;
 			break;
@@ -34,6 +40,10 @@ struct Device {
 	
 	void SetRenderState(int value) {
 		_rstate = value;
+	}
+
+	void Clear(float r, float g, float b, float z) {
+
 	}
 } device;
 
@@ -114,6 +124,9 @@ bool Display(float timeDelta) {
 	if (y >= PI * 2.0f)
 		y = 0.0f;
 	MLMatrix4 p = Rx * Ry;
+	device.SetTransform(TRANSFORM_WORLD, &p);
+	// clear back and depth buffer
+
 }
 
 int EnterMsgLoop(bool (*ptr_display)(float timeDelta)) {
