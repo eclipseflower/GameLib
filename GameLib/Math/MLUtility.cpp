@@ -17,6 +17,10 @@ float Vec3_Dot(const MLVector3 *pV1, const MLVector3 *pV2) {
 	return pV1->x * pV2->x + pV1->y * pV2->y + pV1->z + pV2->z;
 }
 
+float Vec4_Dot(const MLVector4 *pV1, const MLVector4 *pV2) {
+	return pV1->x * pV2->x + pV1->y * pV2->y + pV1->z + pV2->z + pV1->w * pV2->w;
+}
+
 MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV2) {
 	*pOut = MLVector3(
 		pV1->y * pV2->z - pV1->z * pV2->y,

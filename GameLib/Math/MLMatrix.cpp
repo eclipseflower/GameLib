@@ -1,4 +1,4 @@
-#include "MLMatrix.h"
+#include "MLUtility.h"
 
 MLMatrix4::MLMatrix4(float _11, float _12, float _13, float _14,
 	float _21, float _22, float _23, float _24,
@@ -24,4 +24,16 @@ MLMatrix4::MLMatrix4(float _11, float _12, float _13, float _14,
 	this->m[3][1] = _42;
 	this->m[3][2] = _43;
 	this->m[3][3] = _44;
+}
+
+MLMatrix4 MLMatrix4::operator * (const MLMatrix4& rhs) {
+	MLMatrix4 res;
+	for (int i = 0; i < 4; i++) {
+		MLVector4 row(this->m[i][0], this->m[i][1], this->m[i][2], this->m[i][3]);
+		for (int j = 0; j < 4; j++) {
+			MLVector4 col(rhs.m[0][j], rhs.m[1][j], rhs.m[2][j], rhs.m[3][j]);
+			res.m[i][j] = Vec4_Dot(&row, &col);
+		}
+	}
+	return res;
 }

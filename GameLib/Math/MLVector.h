@@ -23,3 +23,17 @@ public:
 	bool operator == (const MLVector3&) const;
 	bool operator != (const MLVector3&) const;
 };
+
+class MLVector4 {
+public:
+	// members
+	float x, y, z, w;
+	// constructors
+	MLVector4() {};
+	MLVector4(float x, float y, float z, float w) {
+		this->x = x;
+		this->y = y;
+		this->z = z;
+		this->w = w;
+	}
+};

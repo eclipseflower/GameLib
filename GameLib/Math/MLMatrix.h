@@ -20,4 +20,6 @@ public:
 		float _31, float _32, float _33, float _34,
 		float _41, float _42, float _43, float _44
 	);
+	// binary operators
+	MLMatrix4 operator * (const MLMatrix4&);
 };

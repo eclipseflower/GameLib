@@ -13,6 +13,8 @@ MLVector3 *Vec3_Normalize(MLVector3 *pOut, const MLVector3 *pV);
 
 float Vec3_Dot(const MLVector3 *pV1, const MLVector3 *pV2);
 
+float Vec4_Dot(const MLVector4 *pV1, const MLVector4 *pV2);
+
 MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV2);
 
 MLMatrix4 *Matrix_Translation(MLMatrix4 *pOut, float x, float y, float z);
