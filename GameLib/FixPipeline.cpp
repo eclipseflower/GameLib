@@ -13,8 +13,32 @@ const int TRANSFORM_PROJECTION = 4;
 
 const int FILL_WIREFRAME = 1;
 
+struct Vertex {
+	// position
+	float _x, _y, _z, _w;
+	// normal
+	float _nx, _ny, _nz;
+	// color
+	float _r, _g, _b;
+	// constructor
+	Vertex() {}
+	Vertex(float x, float y, float z) {
+		_x = x; _y = y; _z = z; _w = 1.0f;
+	}
+};
+
 // create device
 struct Device {
+	// back buffer
+	unsigned int **_backbuf;
+	// depth buffer
+	float **_zbuf;
+	// width and height
+	int _width, _height;
+	// vertex buffer input
+	Vertex *_vb;
+	// index buffer input
+	int *_ib;
 	// world matrix
 	MLMatrix4 _world;
 	// view matrix
@@ -23,6 +47,17 @@ struct Device {
 	MLMatrix4 _proj;
 	// render state
 	int _rstate;
+
+	Device(int width, int height) {
+		_width = width;
+		_height = height;
+		_backbuf = new unsigned int *[_width];
+		_zbuf = new float *[_width];
+		for (int i = 0; i < _width; i++) {
+			_backbuf[i] = new unsigned int[_height];
+			_zbuf[i] = new float[_height];
+		}
+	}
 
 	void SetTransform(int state, const MLMatrix4 *m) {
 		switch (state) {
@@ -42,24 +77,77 @@ struct Device {
 		_rstate = value;
 	}
 
-	void Clear(float r, float g, float b, float z) {
-
+	void Clear(unsigned int color, float z) {
+		for (int i = 0; i < _width; i++) {
+			for (int j = 0; j < _height; j++) {
+				_backbuf[i][j] = color;
+				_zbuf[i][j] = z;
+			}
+		}
 	}
-} device;
 
-struct Vertex {
-	// position
-	float _x, _y, _z;
-	// normal
-	float _nx, _ny, _nz;
-	// color
-	float _r, _g, _b;
-	// constructor
-	Vertex() {}
-	Vertex(float x, float y, float z) {
-		_x = x; _y = y; _z = z;
+	void SetStreamSource(Vertex *vb) {
+		_vb = vb;
 	}
-};
+
+	void SetIndices(int *ib) {
+		_ib = ib;
+	}
+
+	void DrawIndexedPrimitive(int NumVertices, int NumIndices) {
+		Vertex *proj_vertex = new Vertex[NumVertices];
+		MLMatrix4 transform = _world * _view * _proj;
+		for (int i = 0; i < NumVertices; i++) {
+			// vertex position transformation
+			MLVector4 v = MLVector4(_vb[i]._x, _vb[i]._y, _vb[i]._z, _vb[i]._w) * transform;
+		}
+	}
+
+} device(Width, Height);
+
+// vertex buffer
+Vertex *vb;
+// index buffer
+int *ib;
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch (msg) {
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+
+	case WM_KEYDOWN:
+		if (wParam == VK_ESCAPE)
+			DestroyWindow(hwnd);
+		break;
+	}
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+HWND InitWindow(HINSTANCE hInstance, int width, int height, LPCWSTR className) {
+	WNDCLASS wc;
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.lpfnWndProc = WndProc;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.hInstance = hInstance;
+	wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+	wc.hCursor = LoadCursor(0, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	wc.lpszMenuName = 0;
+	wc.lpszClassName = className;
+
+	if (!RegisterClass(&wc)) {
+		MessageBox(0, L"RegisterClass() - FAILED", 0, 0);
+		return 0;
+	}
+
+	HWND hwnd = 0;
+	hwnd = CreateWindow(wc.lpszClassName, wc.lpszClassName, WS_OVERLAPPEDWINDOW, 0, 0, width, height,
+		0, 0, hInstance, 0);
+
+	return hwnd;
+}
 
 void InitCube(Vertex *vb, int *ib) {
 	vb[0] = Vertex(-1.0f, 1.0f, -1.0f);
@@ -93,9 +181,9 @@ void InitCube(Vertex *vb, int *ib) {
 
 bool Setup() {
 	// create vertex buffer
-	Vertex *vb = new Vertex[8];
+	vb = new Vertex[8];
 	// create index buffer
-	int *ib = new int[36];
+	ib = new int[36];
 	// fill vertex buffer and index buffer
 	InitCube(vb, ib);
 	// set view matrix
@@ -126,7 +214,12 @@ bool Display(float timeDelta) {
 	MLMatrix4 p = Rx * Ry;
 	device.SetTransform(TRANSFORM_WORLD, &p);
 	// clear back and depth buffer
-
+	device.Clear(0xffffffff, 1.0f);
+	// draw
+	device.SetStreamSource(vb);
+	device.SetIndices(ib);
+	device.DrawIndexedPrimitive(8, 12);
+	return true;
 }
 
 int EnterMsgLoop(bool (*ptr_display)(float timeDelta)) {
@@ -154,6 +247,9 @@ int EnterMsgLoop(bool (*ptr_display)(float timeDelta)) {
 }
 
 int FixPipeline(HINSTANCE hinstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
+	HWND hwnd = InitWindow(hinstance, Width, Height, L"FixPipeline");
+	ShowWindow(hwnd, SW_SHOW);
+	UpdateWindow(hwnd);
 	Setup();
 	EnterMsgLoop(Display);
 	return 0;
