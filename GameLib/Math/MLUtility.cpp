@@ -30,6 +30,28 @@ MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV
 	return pOut;
 }
 
+MLVector4 *Vec4_Transform(MLVector4 *pOut, const MLVector4 *pV, const MLMatrix4 *pM) {
+	for (int i = 0; i < 4; i++) {
+		MLVector4 rhs(pM->m[0][i], pM->m[1][i], pM->m[2][i], pM->m[3][i]);
+		float val = Vec4_Dot(pV, &rhs);
+		switch (i) {
+		case 0:
+			pOut->x = val;
+			break;
+		case 1:
+			pOut->y = val;
+			break;
+		case 2:
+			pOut->z = val;
+			break;
+		case 3:
+			pOut->w = val;
+			break;
+		}
+	}
+	return pOut;
+}
+
 MLMatrix4 *Matrix_Translation(MLMatrix4 *pOut, float x, float y, float z) {
 	*pOut = MLMatrix4(
 		1, 0, 0, 0,
@@ -123,10 +145,4 @@ MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float x, float y, int width, int hei
 		x + halfW, y + halfH, minZ, 1
 	);
 	return pOut;
-}
-
-// test backface culling
-// in view coordinate system is enough
-bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3) {
-	return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
 }

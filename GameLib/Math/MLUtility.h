@@ -17,6 +17,8 @@ float Vec4_Dot(const MLVector4 *pV1, const MLVector4 *pV2);
 
 MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV2);
 
+MLVector4 *Vec4_Transform(MLVector4 *pOut, const MLVector4 *pV, const MLMatrix4 *pM);
+
 MLMatrix4 *Matrix_Translation(MLMatrix4 *pOut, float x, float y, float z);
 
 MLMatrix4 *Matrix_RotationX(MLMatrix4 *pOut, float angle);
@@ -41,6 +43,3 @@ MLMatrix4 *Matrix_PerspectiveFov(MLMatrix4 *pOut, float fovY, float Aspect, floa
 // viewport matrix
 MLMatrix4 *Matrix_Viewport(MLMatrix4 *pOut, float screenx, float screeny, int width, int height,
 	float minZ = 0.0f, float maxZ = 1.0f);
-
-// backface culling
-bool Backface_Culling(MLVector3 *p1, MLVector3 *p2, MLVector3 *p3);

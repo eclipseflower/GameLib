@@ -94,12 +94,44 @@ struct Device {
 		_ib = ib;
 	}
 
-	void DrawIndexedPrimitive(int NumVertices, int NumIndices) {
-		Vertex *proj_vertex = new Vertex[NumVertices];
+	// clip
+	bool CheckCVV(const MLVector4 *v) {
+		if (v->x < -v->w || v->x > v->w)
+			return false;
+		if (v->y < -v->w || v->y > v->w)
+			return false;
+		if (v->z < 0.0f || v->z > v->w)
+			return false;
+		return true;
+	}
+
+	// backface culling
+	// after view 
+	bool Backface_Culling(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3) {
+		return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
+	}
+
+	void DrawPrimitive(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3, int index) {
+		// clip
+		if (!CheckCVV(p1) || !CheckCVV(p2) || !CheckCVV(p3))
+			return;
+		// back culling
+		if (!Backface_Culling(p1, p2, p3))
+			return;
+	}
+
+	void DrawIndexedPrimitive(int NumVertices, int TriCount) {
+		MLVector4 *tran_pos = new MLVector4[NumVertices];
 		MLMatrix4 transform = _world * _view * _proj;
 		for (int i = 0; i < NumVertices; i++) {
 			// vertex position transformation
-			MLVector4 v = MLVector4(_vb[i]._x, _vb[i]._y, _vb[i]._z, _vb[i]._w) * transform;
+			Vec4_Transform(&tran_pos[i], &MLVector4(_vb[i]._x, _vb[i]._y, _vb[i]._z, _vb[i]._w), 
+				&transform);
+		}
+		// ready to draw
+		for (int i = 0; i < TriCount; i++) {
+			DrawPrimitive(&tran_pos[_ib[i * TriCount]], &tran_pos[_ib[i * TriCount + 1]],
+				&tran_pos[_ib[i * TriCount + 2]], i);
 		}
 	}
 
