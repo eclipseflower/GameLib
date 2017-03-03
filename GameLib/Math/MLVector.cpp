@@ -1,6 +1,7 @@
 #include "MLVector.h"
 #include "MLUtility.h"
 
+// MLVector3
 MLVector3 MLVector3::operator - () const {
 	return MLVector3(-this->x, -this->y, -this->z);
 }
@@ -32,4 +33,23 @@ bool MLVector3::operator == (const MLVector3& rhs) const {
 
 bool MLVector3::operator != (const MLVector3& rhs) const {
 	return !(*this == rhs);
+}
+
+// MLVector4
+MLVector4 MLVector4::operator * (float rhs) const {
+	return MLVector4(this->x * rhs, this->y * rhs, this->z * rhs, this->w * rhs);
+}
+
+MLVector4 MLVector4::operator / (float rhs) const {
+	float overrhs = 1.0f / rhs;
+	return *this * overrhs;
+}
+
+MLVector4& MLVector4::operator *= (float rhs) {
+	*this = *this * rhs;
+}
+
+MLVector4& MLVector4::operator /= (float rhs) {
+	float overrhs = 1.0f / rhs;
+	return *this *= overrhs;
 }

@@ -95,6 +95,7 @@ struct Device {
 	}
 
 	// clip
+	// after projection(in CVV)
 	bool CheckCVV(const MLVector4 *v) {
 		if (v->x < -v->w || v->x > v->w)
 			return false;
@@ -108,30 +109,45 @@ struct Device {
 	// backface culling
 	// after view 
 	bool Backface_Culling(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3) {
+		// wireframe mode don't need backface culling
+		if (_rstate == FILL_WIREFRAME)
+			return true;
 		return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
 	}
 
-	void DrawPrimitive(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3, int index) {
-		// clip
-		if (!CheckCVV(p1) || !CheckCVV(p2) || !CheckCVV(p3))
+	void DrawOnePrimitive(const Vertex *v1, const Vertex *v2, const Vertex *v3) {
+		MLVector4 p1, p2, p3;
+		// first transform to view for back culling
+		MLMatrix4 tran_view = _world * _view;
+		Vec4_Transform(&p1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran_view);
+		Vec4_Transform(&p2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran_view);
+		Vec4_Transform(&p3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran_view);
+		if (!Backface_Culling(&p1, &p2, &p3))
 			return;
-		// back culling
-		if (!Backface_Culling(p1, p2, p3))
+		// second transform to projection for cliping
+		Vec4_Transform(&p1, &p1, &_proj);
+		Vec4_Transform(&p2, &p2, &_proj);
+		Vec4_Transform(&p3, &p3, &_proj);
+		if (!CheckCVV(&p1) || !CheckCVV(&p2) || !CheckCVV(&p3))
 			return;
+		// third projection division and viewport transformation for rasterization
+		p1 /= p1.w; p2 /= p2.w; p3 /= p3.w;
+		MLMatrix4 _viewport;
+		Matrix_Viewport(&_viewport, 0.0f, 0.0f, _width, _height);
+		Vec4_Transform(&p1, &p1, &_viewport);
+		Vec4_Transform(&p2, &p2, &_viewport);
+		Vec4_Transform(&p3, &p3, &_viewport);
+
+		if (_rstate == FILL_WIREFRAME) {
+			// draw line
+		}
 	}
 
 	void DrawIndexedPrimitive(int NumVertices, int TriCount) {
-		MLVector4 *tran_pos = new MLVector4[NumVertices];
-		MLMatrix4 transform = _world * _view * _proj;
-		for (int i = 0; i < NumVertices; i++) {
-			// vertex position transformation
-			Vec4_Transform(&tran_pos[i], &MLVector4(_vb[i]._x, _vb[i]._y, _vb[i]._z, _vb[i]._w), 
-				&transform);
-		}
 		// ready to draw
 		for (int i = 0; i < TriCount; i++) {
-			DrawPrimitive(&tran_pos[_ib[i * TriCount]], &tran_pos[_ib[i * TriCount + 1]],
-				&tran_pos[_ib[i * TriCount + 2]], i);
+			DrawOnePrimitive(&_vb[_ib[i * TriCount]], &_vb[_ib[i * TriCount + 1]],
+				&_vb[_ib[i * TriCount + 2]]);
 		}
 	}
 

@@ -36,4 +36,10 @@ public:
 		this->z = z;
 		this->w = w;
 	}
+	// binary operators
+	MLVector4 operator * (float) const;
+	MLVector4 operator / (float) const;
+	// assignment operators
+	MLVector4& operator *= (float);
+	MLVector4& operator /= (float);
 };
