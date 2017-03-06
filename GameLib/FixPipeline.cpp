@@ -115,6 +115,62 @@ struct Device {
 		return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
 	}
 
+	void BresenhamDrawLine(const MLVector4 *p1, const MLVector4 *p2) {
+		int x1 = (int)p1->x, y1 = (int)p1->y, x2 = (int)p2->x, y2 = (int)p2->y;
+		int dx = x2 - x1, dy = y2 - y1;
+		int xstep = 1, ystep = 1;
+		if (x1 > x2) {
+			dx = -dx;
+			xstep = -1;
+		}
+		if (y1 > y2) {
+			dy = -dy;
+			ystep = -1;
+		}
+		// if line is a point
+		if (dx == 0 && dy == 0) {
+			SetBackBuffer(x1, y1, 0x00000000);
+			return;
+		}
+		// if line slope infinity
+		if (dx == 0) {
+			for (int y = y1; y != y2; y += ystep)
+				SetBackBuffer(x1, y, 0x00000000);
+			return;
+		}
+		// if line slope 0
+		if (dy == 0) {
+			for (int x = x1; x != x2; x += xstep)
+				SetBackBuffer(x, y1, 0x00000000);
+			return;
+		}
+		int dx2 = 2 * dx, dy2 = 2 * dy;
+		// set x unit, step y
+		if (dx > dy) {
+			int error = dx - dy2;
+			for (int x = x1, y = y1; x != x2; x += xstep) {
+				SetBackBuffer(x, y, 0x00000000);
+				if (error < 0) {
+					error += dx2;
+					y += ystep;
+				}
+				error -= dy2;
+			}
+		}
+		// set y unit, step x
+		else {
+			int error = dy - dx2;
+			for (int y = y1, x = x1; y != y2; y += ystep) {
+				SetBackBuffer(x, y, 0x00000000);
+				if (error < 0) {
+					error += dy2;
+					x += xstep;
+				}
+				error -= dx2;
+			}
+		}
+	}
+
 	void DrawOnePrimitive(const Vertex *v1, const Vertex *v2, const Vertex *v3) {
 		MLVector4 p1, p2, p3;
 		// first transform to view for back culling
@@ -140,6 +196,9 @@ struct Device {
 
 		if (_rstate == FILL_WIREFRAME) {
 			// draw line
+			BresenhamDrawLine(&p1, &p2);
+			BresenhamDrawLine(&p2, &p3);
+			BresenhamDrawLine(&p3, &p1);
 		}
 	}
 
@@ -149,6 +208,11 @@ struct Device {
 			DrawOnePrimitive(&_vb[_ib[i * TriCount]], &_vb[_ib[i * TriCount + 1]],
 				&_vb[_ib[i * TriCount + 2]]);
 		}
+	}
+
+	void SetBackBuffer(int x, int y, unsigned int color) {
+		if (x >= 0 && x < _width && y >= 0 && y < _height)
+			_backbuf[x][y] = color;
 	}
 
 } device(Width, Height);
@@ -296,6 +360,14 @@ int EnterMsgLoop(bool (*ptr_display)(float timeDelta)) {
 
 int FixPipeline(HINSTANCE hinstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
 	HWND hwnd = InitWindow(hinstance, Width, Height, L"FixPipeline");
+	HDC hdc = GetDC(hwnd);
+	HDC draw_dc = CreateCompatibleDC(hdc);
+	ReleaseDC(hwnd, hdc);
+	BITMAPINFO bi = { { sizeof(BITMAPINFOHEADER), Width, Height, 1, 32, BI_RGB,
+		Width * Height * 4, 0, 0, 0, 0 } };
+	LPVOID ptr;
+	HBITMAP draw_hb = CreateDIBSection(draw_dc, &bi, DIB_RGB_COLORS, &ptr, 0, 0);
+	SelectObject(draw_dc, draw_hb);
 	ShowWindow(hwnd, SW_SHOW);
 	UpdateWindow(hwnd);
 	Setup();
