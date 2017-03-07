@@ -13,7 +13,7 @@ const int TRANSFORM_PROJECTION = 4;
 
 const int FILL_WIREFRAME = 1;
 
-struct Vertex {
+struct FPVertex {
 	// position
 	float _x, _y, _z, _w;
 	// normal
@@ -21,8 +21,8 @@ struct Vertex {
 	// color
 	float _r, _g, _b;
 	// constructor
-	Vertex() {}
-	Vertex(float x, float y, float z) {
+	FPVertex() {}
+	FPVertex(float x, float y, float z) {
 		_x = x; _y = y; _z = z; _w = 1.0f;
 	}
 };
@@ -40,7 +40,7 @@ struct Device {
 	// width and height
 	int _width, _height;
 	// vertex buffer input
-	Vertex *_vb;
+	FPVertex *_vb;
 	// index buffer input
 	int *_ib;
 	// world matrix
@@ -98,7 +98,7 @@ struct Device {
 		}
 	}
 
-	void SetStreamSource(Vertex *vb) {
+	void SetStreamSource(FPVertex *vb) {
 		_vb = vb;
 	}
 
@@ -183,7 +183,7 @@ struct Device {
 		}
 	}
 
-	void DrawOnePrimitive(const Vertex *v1, const Vertex *v2, const Vertex *v3) {
+	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		MLVector4 p1, p2, p3;
 		// first transform to view for back culling
 		MLMatrix4 tran_view = _world * _view;
@@ -237,7 +237,7 @@ struct Device {
 
 Device *device;
 // vertex buffer
-Vertex *vb;
+FPVertex *vb;
 // index buffer
 int *ib;
 
@@ -280,15 +280,15 @@ HWND InitWindow(HINSTANCE hInstance, int width, int height, LPCWSTR className) {
 	return hwnd;
 }
 
-void InitCube(Vertex *vb, int *ib) {
-	vb[0] = Vertex(-1.0f, 1.0f, -1.0f);
-	vb[1] = Vertex(1.0f, 1.0f, -1.0f);
-	vb[2] = Vertex(1.0f, -1.0f, -1.0f);
-	vb[3] = Vertex(-1.0f, -1.0f, -1.0f);
-	vb[4] = Vertex(-1.0f, 1.0f, 1.0f);
-	vb[5] = Vertex(1.0f, 1.0f, 1.0f);
-	vb[6] = Vertex(1.0f, -1.0f, 1.0f);
-	vb[7] = Vertex(-1.0f, -1.0f, 1.0f);
+void InitCube(FPVertex *vb, int *ib) {
+	vb[0] = FPVertex(-1.0f, 1.0f, -1.0f);
+	vb[1] = FPVertex(1.0f, 1.0f, -1.0f);
+	vb[2] = FPVertex(1.0f, -1.0f, -1.0f);
+	vb[3] = FPVertex(-1.0f, -1.0f, -1.0f);
+	vb[4] = FPVertex(-1.0f, 1.0f, 1.0f);
+	vb[5] = FPVertex(1.0f, 1.0f, 1.0f);
+	vb[6] = FPVertex(1.0f, -1.0f, 1.0f);
+	vb[7] = FPVertex(-1.0f, -1.0f, 1.0f);
 
 	// front face
 	ib[0] = 0; ib[1] = 1; ib[2] = 2;
@@ -312,7 +312,7 @@ void InitCube(Vertex *vb, int *ib) {
 
 bool Setup() {
 	// create vertex buffer
-	vb = new Vertex[8];
+	vb = new FPVertex[8];
 	// create index buffer
 	ib = new int[36];
 	// fill vertex buffer and index buffer
