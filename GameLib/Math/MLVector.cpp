@@ -47,6 +47,7 @@ MLVector4 MLVector4::operator / (float rhs) const {
 
 MLVector4& MLVector4::operator *= (float rhs) {
 	*this = *this * rhs;
+	return *this;
 }
 
 MLVector4& MLVector4::operator /= (float rhs) {

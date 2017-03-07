@@ -29,8 +29,12 @@ struct Vertex {
 
 // create device
 struct Device {
+	// window handle
+	HWND _hwnd;
+	// back buffer dc
+	HDC _drawdc;
 	// back buffer
-	unsigned int **_backbuf;
+	unsigned int *_backbuf;
 	// depth buffer
 	float **_zbuf;
 	// width and height
@@ -48,15 +52,23 @@ struct Device {
 	// render state
 	int _rstate;
 
-	Device(int width, int height) {
+	Device() {}
+
+	Device(HWND hwnd, int width, int height) {
 		_width = width;
 		_height = height;
-		_backbuf = new unsigned int *[_width];
 		_zbuf = new float *[_width];
 		for (int i = 0; i < _width; i++) {
-			_backbuf[i] = new unsigned int[_height];
 			_zbuf[i] = new float[_height];
 		}
+		_hwnd = hwnd;
+		HDC hdc = GetDC(hwnd);
+		_drawdc = CreateCompatibleDC(hdc);
+		ReleaseDC(hwnd, hdc);
+		BITMAPINFO bi = { { sizeof(BITMAPINFOHEADER), Width, Height, 1, 32, BI_RGB,
+			Width * Height * 4, 0, 0, 0, 0 } };
+		HBITMAP hb = CreateDIBSection(_drawdc, &bi, DIB_RGB_COLORS, (void **)&_backbuf, 0, 0);
+		SelectObject(_drawdc, hb);
 	}
 
 	void SetTransform(int state, const MLMatrix4 *m) {
@@ -80,7 +92,7 @@ struct Device {
 	void Clear(unsigned int color, float z) {
 		for (int i = 0; i < _width; i++) {
 			for (int j = 0; j < _height; j++) {
-				_backbuf[i][j] = color;
+				_backbuf[j * _height + i] = color;
 				_zbuf[i][j] = z;
 			}
 		}
@@ -212,11 +224,18 @@ struct Device {
 
 	void SetBackBuffer(int x, int y, unsigned int color) {
 		if (x >= 0 && x < _width && y >= 0 && y < _height)
-			_backbuf[x][y] = color;
+			_backbuf[y * _width + x] = color;
+	}
+	
+	void Present() {
+		HDC hDC = GetDC(_hwnd);
+		BitBlt(hDC, 0, 0, _width, _height, _drawdc, 0, 0, SRCCOPY);
+		ReleaseDC(_hwnd, hDC);
 	}
 
-} device(Width, Height);
+};
 
+Device *device;
 // vertex buffer
 Vertex *vb;
 // index buffer
@@ -304,13 +323,13 @@ bool Setup() {
 	MLVector3 up(0.0f, 1.0f, 0.0f);
 	MLMatrix4 V;
 	Matrix_LookAt(&V, &pos, &target, &up);
-	device.SetTransform(TRANSFORM_VIEW, &V);
+	device->SetTransform(TRANSFORM_VIEW, &V);
 	// set projection matrix
 	MLMatrix4 proj;
 	Matrix_PerspectiveFov(&proj, PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
-	device.SetTransform(TRANSFORM_PROJECTION, &proj);
+	device->SetTransform(TRANSFORM_PROJECTION, &proj);
 	// set render state
-	device.SetRenderState(FILL_WIREFRAME);
+	device->SetRenderState(FILL_WIREFRAME);
 	return true;
 }
 
@@ -324,13 +343,14 @@ bool Display(float timeDelta) {
 	if (y >= PI * 2.0f)
 		y = 0.0f;
 	MLMatrix4 p = Rx * Ry;
-	device.SetTransform(TRANSFORM_WORLD, &p);
+	device->SetTransform(TRANSFORM_WORLD, &p);
 	// clear back and depth buffer
-	device.Clear(0xffffffff, 1.0f);
+	device->Clear(0xffffffff, 1.0f);
 	// draw
-	device.SetStreamSource(vb);
-	device.SetIndices(ib);
-	device.DrawIndexedPrimitive(8, 12);
+	device->SetStreamSource(vb);
+	device->SetIndices(ib);
+	device->DrawIndexedPrimitive(8, 12);
+	device->Present();
 	return true;
 }
 
@@ -360,14 +380,7 @@ int EnterMsgLoop(bool (*ptr_display)(float timeDelta)) {
 
 int FixPipeline(HINSTANCE hinstance, HINSTANCE prevInstance, PSTR cmdLine, int showCmd) {
 	HWND hwnd = InitWindow(hinstance, Width, Height, L"FixPipeline");
-	HDC hdc = GetDC(hwnd);
-	HDC draw_dc = CreateCompatibleDC(hdc);
-	ReleaseDC(hwnd, hdc);
-	BITMAPINFO bi = { { sizeof(BITMAPINFOHEADER), Width, Height, 1, 32, BI_RGB,
-		Width * Height * 4, 0, 0, 0, 0 } };
-	LPVOID ptr;
-	HBITMAP draw_hb = CreateDIBSection(draw_dc, &bi, DIB_RGB_COLORS, &ptr, 0, 0);
-	SelectObject(draw_dc, draw_hb);
+	device = new Device(hwnd, Width, Height);
 	ShowWindow(hwnd, SW_SHOW);
 	UpdateWindow(hwnd);
 	Setup();
