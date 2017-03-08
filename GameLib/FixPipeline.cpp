@@ -1,7 +1,9 @@
 // Fix Pipeline implementation, just a demo
 // Reference: https://github.com/skywind3000/mini3d
 #include <Windows.h>
+#include <cstdio>
 #include "Math/MLUtility.h"
+#pragma warning(disable:4996)
 
 const int Width = 800;
 const int Height = 600;
@@ -12,6 +14,15 @@ const int TRANSFORM_VIEW = 2;
 const int TRANSFORM_PROJECTION = 4;
 
 const int FILL_WIREFRAME = 1;
+
+bool OpenConsoleDebug() {
+	static bool open = false;
+	if (!open) {
+		if(open = AllocConsole())
+			freopen("CONOUT$", "w", stdout);
+	}
+	return open;
+}
 
 struct FPVertex {
 	// position
@@ -184,6 +195,8 @@ struct Device {
 	}
 
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+		if(OpenConsoleDebug())
+			printf("x:%f,y:%f,z:%f,w:%f\n", v1->_x, v1->_y, v1->_z, v1->_w);
 		MLVector4 p1, p2, p3;
 		// first transform to view for back culling
 		MLMatrix4 tran_view = _world * _view;

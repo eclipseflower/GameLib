@@ -20,7 +20,7 @@ MLVector3 MLVector3::operator * (float rhs) const {
 
 MLVector3 MLVector3::operator / (float rhs) const {
 	float oneoverrhs = 1.0f / rhs;
-	return *this * rhs;
+	return *this * oneoverrhs;
 }
 
 bool MLVector3::operator == (const MLVector3& rhs) const {
