@@ -76,7 +76,7 @@ struct Device {
 		HDC hdc = GetDC(hwnd);
 		_drawdc = CreateCompatibleDC(hdc);
 		ReleaseDC(hwnd, hdc);
-		BITMAPINFO bi = { { sizeof(BITMAPINFOHEADER), Width, Height, 1, 32, BI_RGB,
+		BITMAPINFO bi = { { sizeof(BITMAPINFOHEADER), Width, -Height, 1, 32, BI_RGB,
 			Width * Height * 4, 0, 0, 0, 0 } };
 		HBITMAP hb = CreateDIBSection(_drawdc, &bi, DIB_RGB_COLORS, (void **)&_backbuf, 0, 0);
 		SelectObject(_drawdc, hb);
@@ -195,8 +195,6 @@ struct Device {
 	}
 
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
-		if(OpenConsoleDebug())
-			printf("x:%f,y:%f,z:%f,w:%f\n", v1->_x, v1->_y, v1->_z, v1->_w);
 		MLVector4 p1, p2, p3;
 		// first transform to view for back culling
 		MLMatrix4 tran_view = _world * _view;
@@ -230,8 +228,8 @@ struct Device {
 	void DrawIndexedPrimitive(int NumVertices, int TriCount) {
 		// ready to draw
 		for (int i = 0; i < TriCount; i++) {
-			DrawOnePrimitive(&_vb[_ib[i * TriCount]], &_vb[_ib[i * TriCount + 1]],
-				&_vb[_ib[i * TriCount + 2]]);
+			DrawOnePrimitive(&_vb[_ib[i * 3]], &_vb[_ib[i * 3 + 1]],
+				&_vb[_ib[i * 3 + 2]]);
 		}
 	}
 
