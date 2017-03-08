@@ -103,7 +103,7 @@ struct Device {
 	void Clear(unsigned int color, float z) {
 		for (int i = 0; i < _width; i++) {
 			for (int j = 0; j < _height; j++) {
-				_backbuf[j * _height + i] = color;
+				_backbuf[j * _width + i] = color;
 				_zbuf[i][j] = z;
 			}
 		}
