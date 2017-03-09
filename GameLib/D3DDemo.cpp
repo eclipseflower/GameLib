@@ -89,7 +89,7 @@ bool Cube_Setup() {
 	D3DXMATRIX proj;
 	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
 	Device->SetTransform(D3DTS_PROJECTION, &proj);
-
+	//Device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 	Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 	return true;
 }

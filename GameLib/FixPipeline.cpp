@@ -130,12 +130,13 @@ struct Device {
 	}
 
 	// backface culling
-	// after view 
+	// after projection division
 	bool Backface_Culling(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3) {
 		// wireframe mode don't need backface culling
 		if (_rstate == FILL_WIREFRAME)
 			return true;
-		return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > 0;
+		// BE CARE OF FLOATING POINT ERROR!!!
+		return (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x) > EPSILON;
 	}
 
 	void BresenhamDrawLine(const MLVector4 *p1, const MLVector4 *p2) {
@@ -196,21 +197,17 @@ struct Device {
 
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		MLVector4 p1, p2, p3;
-		// first transform to view for back culling
-		MLMatrix4 tran_view = _world * _view;
-		Vec4_Transform(&p1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran_view);
-		Vec4_Transform(&p2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran_view);
-		Vec4_Transform(&p3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran_view);
-		if (!Backface_Culling(&p1, &p2, &p3))
-			return;
-		// second transform to projection for cliping
-		Vec4_Transform(&p1, &p1, &_proj);
-		Vec4_Transform(&p2, &p2, &_proj);
-		Vec4_Transform(&p3, &p3, &_proj);
+		// transform to projection for cliping
+		MLMatrix4 tran = _world * _view * _proj;
+		Vec4_Transform(&p1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran);
+		Vec4_Transform(&p2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran);
+		Vec4_Transform(&p3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran);
 		if (!CheckCVV(&p1) || !CheckCVV(&p2) || !CheckCVV(&p3))
 			return;
 		// third projection division and viewport transformation for rasterization
 		p1 /= p1.w; p2 /= p2.w; p3 /= p3.w;
+		if (!Backface_Culling(&p1, &p2, &p3))
+			return;
 		MLMatrix4 _viewport;
 		Matrix_Viewport(&_viewport, 0.0f, 0.0f, _width, _height);
 		Vec4_Transform(&p1, &p1, &_viewport);

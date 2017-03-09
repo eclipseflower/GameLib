@@ -18,7 +18,7 @@ float Vec3_Dot(const MLVector3 *pV1, const MLVector3 *pV2) {
 }
 
 float Vec4_Dot(const MLVector4 *pV1, const MLVector4 *pV2) {
-	return pV1->x * pV2->x + pV1->y * pV2->y + pV1->z + pV2->z + pV1->w * pV2->w;
+	return pV1->x * pV2->x + pV1->y * pV2->y + pV1->z * pV2->z + pV1->w * pV2->w;
 }
 
 MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV2) {
@@ -31,24 +31,26 @@ MLVector3 *Vec3_Cross(MLVector3 *pOut, const MLVector3 *pV1, const MLVector3 *pV
 }
 
 MLVector4 *Vec4_Transform(MLVector4 *pOut, const MLVector4 *pV, const MLMatrix4 *pM) {
+	MLVector4 result;
 	for (int i = 0; i < 4; i++) {
 		MLVector4 rhs(pM->m[0][i], pM->m[1][i], pM->m[2][i], pM->m[3][i]);
 		float val = Vec4_Dot(pV, &rhs);
 		switch (i) {
 		case 0:
-			pOut->x = val;
+			result.x = val;
 			break;
 		case 1:
-			pOut->y = val;
+			result.y = val;
 			break;
 		case 2:
-			pOut->z = val;
+			result.z = val;
 			break;
 		case 3:
-			pOut->w = val;
+			result.w = val;
 			break;
 		}
 	}
+	*pOut = result;
 	return pOut;
 }
 
