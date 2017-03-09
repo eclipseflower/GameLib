@@ -14,6 +14,7 @@ const int TRANSFORM_VIEW = 2;
 const int TRANSFORM_PROJECTION = 4;
 
 const int FILL_WIREFRAME = 1;
+const int FILL_COLOR = 2;
 
 bool OpenConsoleDebug() {
 	static bool open = false;
@@ -35,6 +36,10 @@ struct FPVertex {
 	FPVertex() {}
 	FPVertex(float x, float y, float z) {
 		_x = x; _y = y; _z = z; _w = 1.0f;
+	}
+	FPVertex(float x, float y, float z, float r, float g, float b) {
+		_x = x; _y = y; _z = z; _w = 1.0f;
+		_r = r; _g = g; _b = b;
 	}
 };
 
@@ -219,6 +224,10 @@ struct Device {
 			BresenhamDrawLine(&p1, &p2);
 			BresenhamDrawLine(&p2, &p3);
 			BresenhamDrawLine(&p3, &p1);
+			return;
+		}
+		if (_rstate == FILL_COLOR) {
+
 		}
 	}
 
@@ -289,14 +298,14 @@ HWND InitWindow(HINSTANCE hInstance, int width, int height, LPCWSTR className) {
 }
 
 void InitCube(FPVertex *vb, int *ib) {
-	vb[0] = FPVertex(-1.0f, 1.0f, -1.0f);
-	vb[1] = FPVertex(1.0f, 1.0f, -1.0f);
-	vb[2] = FPVertex(1.0f, -1.0f, -1.0f);
-	vb[3] = FPVertex(-1.0f, -1.0f, -1.0f);
-	vb[4] = FPVertex(-1.0f, 1.0f, 1.0f);
-	vb[5] = FPVertex(1.0f, 1.0f, 1.0f);
-	vb[6] = FPVertex(1.0f, -1.0f, 1.0f);
-	vb[7] = FPVertex(-1.0f, -1.0f, 1.0f);
+	vb[0] = FPVertex(-1.0f, 1.0f, -1.0f, 1.0f, 0.2f, 0.2f);
+	vb[1] = FPVertex(1.0f, 1.0f, -1.0f, 0.2f, 1.0f, 0.2f);
+	vb[2] = FPVertex(1.0f, -1.0f, -1.0f, 0.2f, 0.2f, 1.0f);
+	vb[3] = FPVertex(-1.0f, -1.0f, -1.0f, 1.0f, 0.2f, 1.0f);
+	vb[4] = FPVertex(-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.2f);
+	vb[5] = FPVertex(1.0f, 1.0f, 1.0f, 0.2f, 1.0f, 1.0f);
+	vb[6] = FPVertex(1.0f, -1.0f, 1.0f, 1.0f, 0.3f, 0.3f);
+	vb[7] = FPVertex(-1.0f, -1.0f, 1.0f, 0.2f, 1.0f, 0.3f);
 
 	// front face
 	ib[0] = 0; ib[1] = 1; ib[2] = 2;
