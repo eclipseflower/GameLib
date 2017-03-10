@@ -7,6 +7,9 @@ const float EPSILON = 0.001f;
 
 bool Float_Equals(float lhs, float rhs);
 
+// linear interploation
+float LinearInterpolation(float x1, float x2, float factor);
+
 float Vec3_Length(const MLVector3 *pV);
 
 MLVector3 *Vec3_Normalize(MLVector3 *pOut, const MLVector3 *pV);

@@ -4,6 +4,10 @@ bool Float_Equals(float lhs, float rhs) {
 	return fabs(lhs - rhs) < EPSILON ? true : false;
 }
 
+float LinearInterpolation(float x1, float x2, float factor) {
+	return x1 + factor * (x2 - x1);
+}
+
 float Vec3_Length(const MLVector3 *pV) {
 	return sqrtf(pV->x * pV->x + pV->y * pV->y + pV->z * pV->z);
 }

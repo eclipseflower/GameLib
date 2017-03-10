@@ -200,6 +200,61 @@ struct Device {
 		}
 	}
 
+	void VertexInterpolation(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
+		vOut->_x = LinearInterpolation(v1->_x, v2->_x, factor);
+		vOut->_y = LinearInterpolation(v1->_y, v2->_y, factor);
+		vOut->_z = LinearInterpolation(v1->_z, v2->_z, factor);
+		vOut->_w = LinearInterpolation(v1->_w, v2->_w, factor);
+		vOut->_r = LinearInterpolation(v1->_r, v2->_r, factor);
+		vOut->_g = LinearInterpolation(v1->_g, v2->_g, factor);
+		vOut->_b = LinearInterpolation(v1->_b, v2->_b, factor);
+	}
+
+	// v1, v2 are in top and v1.x < v2.x
+	void FillTopPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+
+	}
+
+	// v2, v3 are in top and v2.x < v3.x
+	void FillDownPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+
+	}
+
+	void FillOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+		if (Float_Equals(v1->_y, v2->_y)) {
+			if (Float_Equals(v1->_x, v2->_x))
+				return;
+			else if (v1->_x < v2->_x)
+				FillTopPrimitive(v1, v2, v3);
+			else
+				FillTopPrimitive(v2, v1, v3);
+		}
+		else if (Float_Equals(v2->_y, v3->_y)) {
+			if (Float_Equals(v2->_x, v3->_x))
+				return;
+			else if (v2->_x < v3->_x)
+				FillDownPrimitive(v1, v2, v3);
+			else
+				FillDownPrimitive(v1, v3, v2);
+		}
+		else {
+			// interpolation
+			float factor = (v2->_y - v1->_y) / (v3->_y - v1->_y);
+			FPVertex *v = new FPVertex;
+			VertexInterpolation(v, v1, v3, factor);
+			if (Float_Equals(v->_x, v2->_x))
+				return;
+			else if (v->_x < v2->_x) {
+				FillDownPrimitive(v1, v, v2);
+				FillTopPrimitive(v, v2, v3);
+			}
+			else {
+				FillDownPrimitive(v1, v2, v);
+				FillTopPrimitive(v2, v, v3);
+			}
+		}
+	}
+
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		MLVector4 p1, p2, p3;
 		// transform to projection for cliping
@@ -227,7 +282,48 @@ struct Device {
 			return;
 		}
 		if (_rstate == FILL_COLOR) {
-
+			// fill primitive
+			if (Float_Equals(p1.y, p2.y) && Float_Equals(p2.y, p3.y))
+				return;
+			if (Float_Equals(p1.x, p2.x) && Float_Equals(p2.x, p3.x))
+				return;
+			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / v1->_z, v1->_g / v1->_z, v1->_b / v1->_z);
+			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / v2->_z, v2->_g / v2->_z, v2->_b / v2->_z);
+			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / v3->_z, v3->_g / v3->_z, v3->_b / v3->_z);
+			// remember to store real z
+			r1._w = 1.0f / v1->_z;
+			r2._w = 1.0f / v2->_z;
+			r3._w = 1.0f / v3->_z;
+			// sort by y
+			if (p1.y < p2.y) {
+				if (p2.y < p3.y) {
+					// p1 p2 p3
+					FillOnePrimitive(&r1, &r2, &r3);
+				}
+				else if (p1.y < p3.y) {
+					// p1 p3 p2
+					FillOnePrimitive(&r1, &r3, &r2);
+				}
+				else {
+					// p3 p1 p2
+					FillOnePrimitive(&r3, &r1, &r2);
+				}
+			}
+			else {
+				if (p2.y > p3.y) {
+					// p3 p2 p1
+					FillOnePrimitive(&r3, &r2, &r1);
+				}
+				else if(p1.y > p3.y) {
+					// p2 p3 p1
+					FillOnePrimitive(&r2, &r3, &r1);
+				}
+				else {
+					// p2 p1 p3
+					FillOnePrimitive(&r2, &r1, &r3);
+				}
+			}
+			return;
 		}
 	}
 
