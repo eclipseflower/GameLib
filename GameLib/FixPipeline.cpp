@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <cstdio>
 #include "Math/MLUtility.h"
+#include <assert.h>
 #pragma warning(disable:4996)
 
 const int Width = 800;
@@ -200,6 +201,29 @@ struct Device {
 		}
 	}
 
+	void DrawScanLine(const FPVertex *left, const FPVertex *right) {
+		int start = (int)roundf(left->_x);
+		int end = (int)roundf(right->_x);
+		int len = end - start + 1;
+		FPVertex *step = new FPVertex;
+		VertexDivision(step, left, right, right->_x - left->_x);
+		FPVertex v = *left;
+		for (int i = 0; i < len; i++) {
+			float z = 1.0f / v._w;
+			int x = (int)roundf(v._x);
+			int y = (int)roundf(v._y);
+			if (v._z < _zbuf[x][y]) {
+				_zbuf[x][y] = v._z;
+				int r = (int)(v._r * z * 255.0f);
+				int g = (int)(v._g * z * 255.0f);
+				int b = (int)(v._b * z * 255.0f);
+				unsigned int color = (r << 16) | (g << 8) | b;
+				SetBackBuffer(x, y, color);
+			}
+			VertexAdd(&v, step);
+		}
+	}
+
 	void VertexInterpolation(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
 		vOut->_x = LinearInterpolation(v1->_x, v2->_x, factor);
 		vOut->_y = LinearInterpolation(v1->_y, v2->_y, factor);
@@ -210,14 +234,61 @@ struct Device {
 		vOut->_b = LinearInterpolation(v1->_b, v2->_b, factor);
 	}
 
-	// v1, v2 are in top and v1.x < v2.x
-	void FillTopPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
-
+	void VertexDivision(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
+		float oneoverfactor = Float_Equals(factor, 0.0f) ? 0.0f : 1.0f / factor;
+		vOut->_x = (v2->_x - v1->_x) * oneoverfactor;
+		vOut->_y = (v2->_y - v1->_y) * oneoverfactor;
+		vOut->_z = (v2->_z - v1->_z) * oneoverfactor;
+		vOut->_w = (v2->_w - v1->_w) * oneoverfactor;
+		vOut->_r = (v2->_r - v1->_r) * oneoverfactor;
+		vOut->_g = (v2->_g - v1->_g) * oneoverfactor;
+		vOut->_b = (v2->_b - v1->_b) * oneoverfactor;
 	}
 
-	// v2, v3 are in top and v2.x < v3.x
-	void FillDownPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+	void VertexAdd(FPVertex *vOut, FPVertex *step) {
+		vOut->_x += step->_x;
+		vOut->_y += step->_y;
+		vOut->_z += step->_z;
+		vOut->_w += step->_w;
+		vOut->_r += step->_r;
+		vOut->_g += step->_g;
+		vOut->_b += step->_b;
+	}
 
+	// v1, v2 are in top and v1.x < v2.x
+	void FillTopPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+		int start = (int)roundf(v1->_y);
+		int end = (int)roundf(v3->_y);
+		int len = end - start + 1;
+		FPVertex *stepLeft = new FPVertex;
+		FPVertex *stepRight = new FPVertex;
+		VertexDivision(stepLeft, v1, v3, v3->_y - v1->_y);
+		VertexDivision(stepRight, v2, v3, v3->_y - v2->_y);
+		FPVertex scanLeft = *v1;
+		FPVertex scanRight = *v2;
+		for (int i = 0; i < len; i++) {
+			DrawScanLine(&scanLeft, &scanRight);
+			VertexAdd(&scanLeft, stepLeft);
+			VertexAdd(&scanRight, stepRight);
+		}
+	}
+
+	// v2, v3 are in down and v2.x < v3.x
+	void FillDownPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+		int start = (int)roundf(v1->_y);
+		int end = (int)roundf(v2->_y);
+		int len = end - start + 1;
+		FPVertex *stepLeft = new FPVertex;
+		FPVertex *stepRight = new FPVertex;
+		VertexDivision(stepLeft, v1, v2, v2->_y - v1->_y);
+		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
+		FPVertex scanLeft = *v1;
+		FPVertex scanRight = *v1;
+		for (int i = 0; i < len; i++) {
+			DrawScanLine(&scanLeft, &scanRight);
+			VertexAdd(&scanLeft, stepLeft);
+			VertexAdd(&scanRight, stepRight);
+		}
 	}
 
 	void FillOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
@@ -265,6 +336,10 @@ struct Device {
 		if (!CheckCVV(&p1) || !CheckCVV(&p2) || !CheckCVV(&p3))
 			return;
 		// third projection division and viewport transformation for rasterization
+		// remember to store real z first before division
+		float z1 = p1.w;
+		float z2 = p2.w;
+		float z3 = p3.w;
 		p1 /= p1.w; p2 /= p2.w; p3 /= p3.w;
 		if (!Backface_Culling(&p1, &p2, &p3))
 			return;
@@ -287,13 +362,13 @@ struct Device {
 				return;
 			if (Float_Equals(p1.x, p2.x) && Float_Equals(p2.x, p3.x))
 				return;
-			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / v1->_z, v1->_g / v1->_z, v1->_b / v1->_z);
-			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / v2->_z, v2->_g / v2->_z, v2->_b / v2->_z);
-			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / v3->_z, v3->_g / v3->_z, v3->_b / v3->_z);
+			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / z1, v1->_g / z1, v1->_b / z1);
+			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / z2, v2->_g / z2, v2->_b / z2);
+			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / z3, v3->_g / z3, v3->_b / z3);
 			// remember to store real z
-			r1._w = 1.0f / v1->_z;
-			r2._w = 1.0f / v2->_z;
-			r3._w = 1.0f / v3->_z;
+			r1._w = 1.0f / z1;
+			r2._w = 1.0f / z2;
+			r3._w = 1.0f / z3;
 			// sort by y
 			if (p1.y < p2.y) {
 				if (p2.y < p3.y) {
@@ -442,7 +517,7 @@ bool Setup() {
 	Matrix_PerspectiveFov(&proj, PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
 	device->SetTransform(TRANSFORM_PROJECTION, &proj);
 	// set render state
-	device->SetRenderState(FILL_WIREFRAME);
+	device->SetRenderState(FILL_COLOR);
 	return true;
 }
 
@@ -450,11 +525,11 @@ bool Display(float timeDelta) {
 	MLMatrix4 Rx, Ry;
 	static float x = PI * 0.25f;
 	Matrix_RotationX(&Rx, x);
-	static float y = 0.0f;
+	static float y = PI * 0.25f;
 	Matrix_RotationY(&Ry, y);
-	y += timeDelta;
-	if (y >= PI * 2.0f)
-		y = 0.0f;
+	//y += timeDelta;
+	//if (y >= PI * 2.0f)
+	//	y = 0.0f;
 	MLMatrix4 p = Rx * Ry;
 	device->SetTransform(TRANSFORM_WORLD, &p);
 	// clear back and depth buffer
