@@ -201,19 +201,17 @@ struct Device {
 		}
 	}
 
-	void DrawScanLine(const FPVertex *left, const FPVertex *right) {
+	void DrawScanLine(const FPVertex *left, const FPVertex *right , int yIndex) {
 		int start = (int)roundf(left->_x);
 		int end = (int)roundf(right->_x);
-		int len = end - start + 1;
 		FPVertex *step = new FPVertex;
 		VertexDivision(step, left, right, right->_x - left->_x);
 		FPVertex v = *left;
-		for (int i = 0; i < len; i++) {
+		for (int xIndex = start; xIndex < end; xIndex++) {
+			assert(xIndex >= 0 && xIndex < _width);
 			float z = 1.0f / v._w;
-			int x = (int)roundf(v._x);
-			int y = (int)roundf(v._y);
-			if (v._z < _zbuf[x][y]) {
-				_zbuf[x][y] = v._z;
+			if (v._z < _zbuf[xIndex][yIndex]) {
+				_zbuf[xIndex][yIndex] = v._z;
 				int r = (int)(v._r * z * 255.0f);
 				int g = (int)(v._g * z * 255.0f);
 				int b = (int)(v._b * z * 255.0f);
@@ -221,11 +219,34 @@ struct Device {
 				g = max(0, min(g, 255));
 				b = max(0, min(b, 255));
 				unsigned int color = (r << 16) | (g << 8) | b;
-				assert(r >= 0 && g >= 0 & b >= 0);
-				SetBackBuffer(x, y, color);
+				assert(r >= 0 && g >= 0 && b >= 0);
+				SetBackBuffer(xIndex, yIndex, color);
 			}
 			VertexAdd(&v, step);
 		}
+		/*
+		FPVertex *step = new FPVertex;
+		VertexDivision(step, left, right, right->_x - left->_x);
+		FPVertex v = *left;
+		for (float x = left->_x; x <= right->_x; x += 1.0f) {
+			int xIndex = (int)roundf(x);
+			assert(xIndex >= 0 && x < _width);
+			float z = 1.0f / v._w;
+			if (v._z < _zbuf[xIndex][yIndex]) {
+				_zbuf[xIndex][yIndex] = v._z;
+				int r = (int)(v._r * z * 255.0f);
+				int g = (int)(v._g * z * 255.0f);
+				int b = (int)(v._b * z * 255.0f);
+				r = max(0, min(r, 255));
+				g = max(0, min(g, 255));
+				b = max(0, min(b, 255));
+				unsigned int color = (r << 16) | (g << 8) | b;
+				assert(r >= 0 && g >= 0 && b >= 0);
+				SetBackBuffer(xIndex, yIndex, color);
+			}
+			VertexAdd(&v, step);
+		}
+		*/
 	}
 
 	void VertexInterpolation(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
@@ -263,36 +284,68 @@ struct Device {
 	void FillTopPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		int start = (int)roundf(v1->_y);
 		int end = (int)roundf(v3->_y);
-		int len = end - start + 1;
 		FPVertex *stepLeft = new FPVertex;
 		FPVertex *stepRight = new FPVertex;
 		VertexDivision(stepLeft, v1, v3, v3->_y - v1->_y);
 		VertexDivision(stepRight, v2, v3, v3->_y - v2->_y);
 		FPVertex scanLeft = *v1;
 		FPVertex scanRight = *v2;
-		for (int i = 0; i < len; i++) {
-			DrawScanLine(&scanLeft, &scanRight);
+		for (int yIndex = start; yIndex < end; yIndex++) {
+			VertexInterpolation(&scanLeft, v1, v3, (yIndex + 0.5f - v1->_y) / (v3->_y - v1->_y));
+			VertexInterpolation(&scanRight, v2, v3, (yIndex + 0.5f - v2->_y) / (v3->_y - v2->_y));
+			DrawScanLine(&scanLeft, &scanRight, yIndex);
+			//VertexAdd(&scanLeft, stepLeft);
+			//VertexAdd(&scanRight, stepRight);
+		}
+		/*
+		FPVertex *stepLeft = new FPVertex;
+		FPVertex *stepRight = new FPVertex;
+		VertexDivision(stepLeft, v1, v3, v3->_y - v1->_y);
+		VertexDivision(stepRight, v2, v3, v3->_y - v2->_y);
+		FPVertex scanLeft = *v1;
+		FPVertex scanRight = *v2;
+		for (float y = v1->_y; y <= v3->_y; y += 1.0f) {
+			int yIndex = (int)roundf(y);
+			assert(yIndex >= 0 && yIndex < _height);
+			DrawScanLine(&scanLeft, &scanRight, yIndex);
 			VertexAdd(&scanLeft, stepLeft);
 			VertexAdd(&scanRight, stepRight);
 		}
+		*/
 	}
 
 	// v2, v3 are in down and v2.x < v3.x
 	void FillDownPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
-		int start = (int)roundf(v2->_y);
-		int end = (int)roundf(v1->_y);
-		int len = start - end + 1;
+		int start = (int)roundf(v1->_y);
+		int end = (int)roundf(v2->_y);
 		FPVertex *stepLeft = new FPVertex;
 		FPVertex *stepRight = new FPVertex;
-		VertexDivision(stepLeft, v1, v2, v1->_y - v2->_y);
-		VertexDivision(stepRight, v1, v3, v1->_y - v3->_y);
-		FPVertex scanLeft = *v2;
-		FPVertex scanRight = *v3;
-		for (int i = 0; i < len; i++) {
-			DrawScanLine(&scanLeft, &scanRight);
+		VertexDivision(stepLeft, v1, v2, v2->_y - v1->_y);
+		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
+		FPVertex scanLeft = *v1;
+		FPVertex scanRight = *v1;
+		for (int yIndex = start; yIndex < end; yIndex++) {
+			VertexInterpolation(&scanLeft, v1, v2, (yIndex + 0.5f - v1->_y) / (v2->_y - v1->_y));
+			VertexInterpolation(&scanRight, v1, v3, (yIndex + 0.5f - v1->_y) / (v3->_y - v1->_y));
+			DrawScanLine(&scanLeft, &scanRight, yIndex);
+			//VertexAdd(&scanLeft, stepLeft);
+			//VertexAdd(&scanRight, stepRight);
+		}
+		/*
+		FPVertex *stepLeft = new FPVertex;
+		FPVertex *stepRight = new FPVertex;
+		VertexDivision(stepLeft, v1, v2, v2->_y - v1->_y);
+		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
+		FPVertex scanLeft = *v1;
+		FPVertex scanRight = *v1;
+		for (float y = v1->_y; y <= v2->_y; y += 1.0f) {
+			int yIndex = (int)roundf(y);
+			assert(yIndex >= 0 && yIndex < _height);
+			DrawScanLine(&scanLeft, &scanRight, yIndex);
 			VertexAdd(&scanLeft, stepLeft);
 			VertexAdd(&scanRight, stepRight);
 		}
+		*/
 	}
 
 	void FillOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
@@ -529,7 +582,7 @@ bool Display(float timeDelta) {
 	MLMatrix4 Rx, Ry;
 	static float x = PI * 0.25f;
 	Matrix_RotationX(&Rx, x);
-	static float y = 0.5f;
+	static float y = 0.0f;
 	Matrix_RotationY(&Ry, y);
 	y += timeDelta;
 	if (y >= PI * 2.0f)
