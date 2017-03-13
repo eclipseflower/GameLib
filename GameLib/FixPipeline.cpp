@@ -217,7 +217,11 @@ struct Device {
 				int r = (int)(v._r * z * 255.0f);
 				int g = (int)(v._g * z * 255.0f);
 				int b = (int)(v._b * z * 255.0f);
+				r = max(0, min(r, 255));
+				g = max(0, min(g, 255));
+				b = max(0, min(b, 255));
 				unsigned int color = (r << 16) | (g << 8) | b;
+				assert(r >= 0 && g >= 0 & b >= 0);
 				SetBackBuffer(x, y, color);
 			}
 			VertexAdd(&v, step);
@@ -275,15 +279,15 @@ struct Device {
 
 	// v2, v3 are in down and v2.x < v3.x
 	void FillDownPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
-		int start = (int)roundf(v1->_y);
-		int end = (int)roundf(v2->_y);
-		int len = end - start + 1;
+		int start = (int)roundf(v2->_y);
+		int end = (int)roundf(v1->_y);
+		int len = start - end + 1;
 		FPVertex *stepLeft = new FPVertex;
 		FPVertex *stepRight = new FPVertex;
-		VertexDivision(stepLeft, v1, v2, v2->_y - v1->_y);
-		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
-		FPVertex scanLeft = *v1;
-		FPVertex scanRight = *v1;
+		VertexDivision(stepLeft, v1, v2, v1->_y - v2->_y);
+		VertexDivision(stepRight, v1, v3, v1->_y - v3->_y);
+		FPVertex scanLeft = *v2;
+		FPVertex scanRight = *v3;
 		for (int i = 0; i < len; i++) {
 			DrawScanLine(&scanLeft, &scanRight);
 			VertexAdd(&scanLeft, stepLeft);
@@ -402,11 +406,11 @@ struct Device {
 		}
 	}
 
-	void DrawIndexedPrimitive(int NumVertices, int TriCount) {
+	void DrawIndexedPrimitive(int startIndex, int TriCount) {
 		// ready to draw
 		for (int i = 0; i < TriCount; i++) {
-			DrawOnePrimitive(&_vb[_ib[i * 3]], &_vb[_ib[i * 3 + 1]],
-				&_vb[_ib[i * 3 + 2]]);
+			DrawOnePrimitive(&_vb[_ib[startIndex + i * 3]], &_vb[_ib[startIndex + i * 3 + 1]],
+				&_vb[_ib[startIndex + i * 3 + 2]]);
 		}
 	}
 
@@ -525,11 +529,11 @@ bool Display(float timeDelta) {
 	MLMatrix4 Rx, Ry;
 	static float x = PI * 0.25f;
 	Matrix_RotationX(&Rx, x);
-	static float y = PI * 0.25f;
+	static float y = 0.5f;
 	Matrix_RotationY(&Ry, y);
-	//y += timeDelta;
-	//if (y >= PI * 2.0f)
-	//	y = 0.0f;
+	y += timeDelta;
+	if (y >= PI * 2.0f)
+		y = 0.0f;
 	MLMatrix4 p = Rx * Ry;
 	device->SetTransform(TRANSFORM_WORLD, &p);
 	// clear back and depth buffer
@@ -537,7 +541,7 @@ bool Display(float timeDelta) {
 	// draw
 	device->SetStreamSource(vb);
 	device->SetIndices(ib);
-	device->DrawIndexedPrimitive(8, 12);
+	device->DrawIndexedPrimitive(0, 12);
 	device->Present();
 	return true;
 }
