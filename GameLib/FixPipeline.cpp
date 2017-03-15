@@ -265,14 +265,16 @@ struct Device {
 		FPVertex *stepRight = new FPVertex;
 		VertexDivision(stepLeft, v1, v3, v3->_y - v1->_y);
 		VertexDivision(stepRight, v2, v3, v3->_y - v2->_y);
-		FPVertex scanLeft = *v1;
-		FPVertex scanRight = *v2;
+		FPVertex *scanLeft = new FPVertex;
+		FPVertex *scanRight = new FPVertex;
+		VertexInterpolation(scanLeft, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
+		VertexInterpolation(scanRight, v2, v3, (start - v2->_y) / (v3->_y - v2->_y));
 		for (int yIndex = start; yIndex < end; yIndex++) {
-			VertexInterpolation(&scanLeft, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
-			VertexInterpolation(&scanRight, v2, v3, (yIndex - v2->_y) / (v3->_y - v2->_y));
-			DrawScanLine(&scanLeft, &scanRight, yIndex);
-			//VertexAdd(&scanLeft, stepLeft);
-			//VertexAdd(&scanRight, stepRight);
+			//VertexInterpolation(&scanLeft, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
+			//VertexInterpolation(&scanRight, v2, v3, (yIndex - v2->_y) / (v3->_y - v2->_y));
+			DrawScanLine(scanLeft, scanRight, yIndex);
+			VertexAdd(scanLeft, stepLeft);
+			VertexAdd(scanRight, stepRight);
 		}
 	}
 
@@ -284,14 +286,16 @@ struct Device {
 		FPVertex *stepRight = new FPVertex;
 		VertexDivision(stepLeft, v1, v2, v2->_y - v1->_y);
 		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
-		FPVertex scanLeft = *v1;
-		FPVertex scanRight = *v1;
+		FPVertex *scanLeft = new FPVertex;
+		FPVertex *scanRight = new FPVertex;
+		VertexInterpolation(scanLeft, v1, v2, (start - v1->_y) / (v2->_y - v1->_y));
+		VertexInterpolation(scanRight, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
 		for (int yIndex = start; yIndex < end; yIndex++) {
-			VertexInterpolation(&scanLeft, v1, v2, (yIndex - v1->_y) / (v2->_y - v1->_y));
-			VertexInterpolation(&scanRight, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
-			DrawScanLine(&scanLeft, &scanRight, yIndex);
-			//VertexAdd(&scanLeft, stepLeft);
-			//VertexAdd(&scanRight, stepRight);
+			//VertexInterpolation(&scanLeft, v1, v2, (yIndex - v1->_y) / (v2->_y - v1->_y));
+			//VertexInterpolation(&scanRight, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
+			DrawScanLine(scanLeft, scanRight, yIndex);
+			VertexAdd(scanLeft, stepLeft);
+			VertexAdd(scanRight, stepRight);
 		}
 	}
 
