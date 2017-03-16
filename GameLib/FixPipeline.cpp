@@ -257,6 +257,15 @@ struct Device {
 		vOut->_b += step->_b;
 	}
 
+	/**********************************************************************************
+		Here, In FillTopPrimitive and FillDownPrimitive function, we didn't use vertex_add to 
+		interpolation. Why? Because the floating point add error!
+		In my debug history, I found that the error could cause value become 0.999 while the real
+		value is 1.001. Thus, when we use ceilf function, the integer value will be 1 NOT 2! So it
+		will cause a white plot in some circumstance.
+		LOOK OUT FOR FLOATING POINT ADD ERROR!
+	**/
+
 	// v1, v2 are in top and v1.x < v2.x
 	void FillTopPrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		int start = (int)ceilf(v1->_y);
@@ -267,14 +276,16 @@ struct Device {
 		VertexDivision(stepRight, v2, v3, v3->_y - v2->_y);
 		FPVertex *scanLeft = new FPVertex;
 		FPVertex *scanRight = new FPVertex;
-		VertexInterpolation(scanLeft, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
-		VertexInterpolation(scanRight, v2, v3, (start - v2->_y) / (v3->_y - v2->_y));
+		//FPVertex *tscanLeft = new FPVertex;
+		//FPVertex *tscanRight = new FPVertex;
+		//VertexInterpolation(tscanLeft, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
+		//VertexInterpolation(tscanRight, v2, v3, (start - v2->_y) / (v3->_y - v2->_y));
 		for (int yIndex = start; yIndex < end; yIndex++) {
-			//VertexInterpolation(&scanLeft, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
-			//VertexInterpolation(&scanRight, v2, v3, (yIndex - v2->_y) / (v3->_y - v2->_y));
+			VertexInterpolation(scanLeft, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
+			VertexInterpolation(scanRight, v2, v3, (yIndex - v2->_y) / (v3->_y - v2->_y));
 			DrawScanLine(scanLeft, scanRight, yIndex);
-			VertexAdd(scanLeft, stepLeft);
-			VertexAdd(scanRight, stepRight);
+			//VertexAdd(tscanLeft, stepLeft);
+			//VertexAdd(tscanRight, stepRight);
 		}
 	}
 
@@ -288,14 +299,16 @@ struct Device {
 		VertexDivision(stepRight, v1, v3, v3->_y - v1->_y);
 		FPVertex *scanLeft = new FPVertex;
 		FPVertex *scanRight = new FPVertex;
-		VertexInterpolation(scanLeft, v1, v2, (start - v1->_y) / (v2->_y - v1->_y));
-		VertexInterpolation(scanRight, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
+		//FPVertex *tscanLeft = new FPVertex;
+		//FPVertex *tscanRight = new FPVertex;
+		//VertexInterpolation(tscanLeft, v1, v2, (start - v1->_y) / (v2->_y - v1->_y));
+		//VertexInterpolation(tscanRight, v1, v3, (start - v1->_y) / (v3->_y - v1->_y));
 		for (int yIndex = start; yIndex < end; yIndex++) {
-			//VertexInterpolation(&scanLeft, v1, v2, (yIndex - v1->_y) / (v2->_y - v1->_y));
-			//VertexInterpolation(&scanRight, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
+			VertexInterpolation(scanLeft, v1, v2, (yIndex - v1->_y) / (v2->_y - v1->_y));
+			VertexInterpolation(scanRight, v1, v3, (yIndex - v1->_y) / (v3->_y - v1->_y));
 			DrawScanLine(scanLeft, scanRight, yIndex);
-			VertexAdd(scanLeft, stepLeft);
-			VertexAdd(scanRight, stepRight);
+			//VertexAdd(tscanLeft, stepLeft);
+			//VertexAdd(tscanRight, stepRight);
 		}
 	}
 
