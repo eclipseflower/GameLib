@@ -10,12 +10,23 @@ const int Width = 800;
 const int Height = 600;
 const float PI = 3.1415927f;
 
-const int TRANSFORM_WORLD = 1;
-const int TRANSFORM_VIEW = 2;
-const int TRANSFORM_PROJECTION = 4;
+enum TRANSFORMTYPE
+{
+	TRANSFORM_WORLD = 1,
+	TRANSFORM_VIEW = 2,
+	TRANSFORM_PROJECTION = 4,
+};
 
-const int FILL_WIREFRAME = 1;
-const int FILL_COLOR = 2;
+enum FILLTYPE {
+	FILL_WIREFRAME = 1,
+	FILL_COLOR = 2,
+};
+
+enum LIGHTTYPE {
+	LIGHT_POINT = 1,
+	LIGHT_SPOT = 2,
+	LIGHT_DIRECTIONAL = 4,
+};
 
 bool OpenConsoleDebug() {
 	static bool open = false;
@@ -26,13 +37,21 @@ bool OpenConsoleDebug() {
 	return open;
 }
 
+struct Color {
+	float _r, _g, _b;
+	Color() {}
+	Color(float r, float g, float b) {
+		_r = r; _g = g; _b = b;
+	}
+};
+
 struct FPVertex {
 	// position
 	float _x, _y, _z, _w;
-	// normal
-	float _nx, _ny, _nz;
 	// color
 	float _r, _g, _b;
+	// normal
+	float _nx, _ny, _nz;
 	// constructor
 	FPVertex() {}
 	FPVertex(float x, float y, float z) {
@@ -42,6 +61,35 @@ struct FPVertex {
 		_x = x; _y = y; _z = z; _w = 1.0f;
 		_r = r; _g = g; _b = b;
 	}
+	FPVertex(float x, float y, float z, float r, float g, float b, float nx, float ny, float nz) {
+		_x = x; _y = y; _z = z; _w = 1.0f;
+		_r = r; _g = g; _b = b;
+		_nx = nx; _ny = ny; _nz = nz;
+	}
+};
+
+struct Material {
+	Color Diffuse;
+	Color Ambient;
+	Color Specular;
+	Color Emissive;
+	float Power;
+};
+
+struct Light {
+	LIGHTTYPE Type;
+	Color Diffiuse;
+	Color Ambient;
+	Color Specular;
+	MLVector4 Position;
+	MLVector4 Direction;
+	float Range;
+	float Falloff;
+	float Attenuation0;
+	float Attenuation1;
+	float Attenuation2;
+	float Theta;
+	float Phi;
 };
 
 // create device
@@ -67,7 +115,9 @@ struct Device {
 	// projection matrix
 	MLMatrix4 _proj;
 	// render state
-	int _rstate;
+	FILLTYPE _rstate;
+	// material
+	Material *_mtrl;
 
 	Device() {}
 
@@ -88,8 +138,8 @@ struct Device {
 		SelectObject(_drawdc, hb);
 	}
 
-	void SetTransform(int state, const MLMatrix4 *m) {
-		switch (state) {
+	void SetTransform(TRANSFORMTYPE type, const MLMatrix4 *m) {
+		switch (type) {
 		case TRANSFORM_WORLD:
 			_world = *m;
 			break;
@@ -121,6 +171,10 @@ struct Device {
 
 	void SetIndices(int *ib) {
 		_ib = ib;
+	}
+
+	void SetMaterial(Material *mtrl) {
+		_mtrl = mtrl;
 	}
 
 	// clip
@@ -519,13 +573,47 @@ void InitCube(FPVertex *vb, int *ib) {
 	ib[33] = 6; ib[34] = 3; ib[35] = 2;
 }
 
+void InitPyramid(FPVertex *vb) {
+	vb[0] = FPVertex(-1.0f, 0.0f, -1.0f, 1.0f, 0.2f, 0.2f, 0.0f, 0.707f, -0.707f);
+	vb[1] = FPVertex(0.0f, 1.0f, 0.0f, 0.2f, 1.0f, 0.2f, 0.0f, 0.707f, -0.707f);
+	vb[2] = FPVertex(1.0f, 0.0f, -1.0f, 0.2f, 0.2f, 1.0f, 0.0f, 0.707f, -0.707f);
+	vb[3] = FPVertex(-1.0f, 0.0f, 1.0f, 1.0f, 0.2f, 1.0f, -0.707f, 0.707f, 0.0f);
+	vb[4] = FPVertex(0.0f, 1.0f, 0.0f, 0.2f, 1.0f, 0.2f, -0.707f, 0.707f, 0.0f);
+	vb[5] = FPVertex(-1.0f, 0.0f, -1.0f, 1.0f, 0.2f, 0.2f, -0.707f, 0.707f, 0.0f);
+	vb[6] = FPVertex(1.0f, 0.0f, -1.0f, 0.2f, 0.2f, 1.0f, 0.707f, 0.707f, 0.0f);
+	vb[7] = FPVertex(0.0f, 1.0f, 0.0f, 0.2f, 1.0f, 0.2f, 0.707f, 0.707f, 0.0f);
+	vb[8] = FPVertex(1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f, 0.707f, 0.707f, 0.0f);
+	vb[9] = FPVertex(1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.2f, 0.0f, 0.707f, 0.707f);
+	vb[10] = FPVertex(0.0f, 1.0f, 0.0f, 0.2f, 1.0f, 0.2f, 0.0f, 0.707f, 0.707f);
+	vb[11] = FPVertex(-1.0f, 0.0f, 1.0f, 1.0f, 0.2f, 1.0f, 0.0f, 0.707f, 0.707f);
+}
+
+void InitMaterial() {
+	Material mtrl;
+	mtrl.Ambient = Color(1.0f, 1.0f, 1.0f);
+	mtrl.Diffuse = Color(1.0f, 1.0f, 1.0f);
+	mtrl.Specular = Color(1.0f, 1.0f, 1.0f);
+	mtrl.Emissive = Color(0.0f, 0.0f, 0.0f);
+	mtrl.Power = 5.0f;
+	device->SetMaterial(&mtrl);
+}
+
+void InitLight() {
+
+}
+
 bool Setup() {
 	// create vertex buffer
-	vb = new FPVertex[8];
+	vb = new FPVertex[12];
 	// create index buffer
-	ib = new int[36];
+	//ib = new int[36];
 	// fill vertex buffer and index buffer
-	InitCube(vb, ib);
+	//InitCube(vb, ib);
+	InitPyramid(vb);
+	// init material
+	InitMaterial();
+	// init light
+	InitLight();
 	// set view matrix
 	MLVector3 pos(0.0f, 0.0f, -5.0f);
 	MLVector3 target(0.0f, 0.0f, 0.0f);
