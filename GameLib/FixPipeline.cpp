@@ -118,6 +118,10 @@ struct Device {
 	FILLTYPE _rstate;
 	// material
 	Material *_mtrl;
+	// light
+	Light *_light;
+	// light status
+	bool _lightenable;
 
 	Device() {}
 
@@ -152,7 +156,7 @@ struct Device {
 		}
 	}
 	
-	void SetRenderState(int value) {
+	void SetRenderState(FILLTYPE value) {
 		_rstate = value;
 	}
 
@@ -175,6 +179,14 @@ struct Device {
 
 	void SetMaterial(Material *mtrl) {
 		_mtrl = mtrl;
+	}
+
+	void SetLight(Light *light) {
+		_light = light;
+	}
+
+	void LightEnable(bool value) {
+		_lightenable = value;
 	}
 
 	// clip
@@ -477,6 +489,14 @@ struct Device {
 		}
 	}
 
+	void DrawPrimitive(int startIndex, int TriCount) {
+		// ready to draw
+		for (int i = 0; i < TriCount; i++) {
+			DrawOnePrimitive(&_vb[startIndex + i * 3], &_vb[startIndex + i * 3 + 1],
+				&_vb[startIndex + i * 3 + 2]);
+		}
+	}
+
 	void DrawIndexedPrimitive(int startIndex, int TriCount) {
 		// ready to draw
 		for (int i = 0; i < TriCount; i++) {
@@ -599,7 +619,14 @@ void InitMaterial() {
 }
 
 void InitLight() {
-
+	Light light;
+	light.Type = LIGHT_DIRECTIONAL;
+	light.Diffiuse = Color(1.0f, 1.0f, 1.0f);
+	light.Specular = Color(0.3f, 0.3f, 0.3f);
+	light.Ambient = Color(0.6f, 0.6f, 0.6f);
+	light.Direction = MLVector4(1.0f, 0.0f, 0.0f, 0.0f);
+	device->SetLight(&light);
+	device->LightEnable(true);
 }
 
 bool Setup() {
@@ -615,7 +642,7 @@ bool Setup() {
 	// init light
 	InitLight();
 	// set view matrix
-	MLVector3 pos(0.0f, 0.0f, -5.0f);
+	MLVector3 pos(0.0f, 1.0f, -3.0f);
 	MLVector3 target(0.0f, 0.0f, 0.0f);
 	MLVector3 up(0.0f, 1.0f, 0.0f);
 	MLMatrix4 V;
@@ -631,22 +658,23 @@ bool Setup() {
 }
 
 bool Display(float timeDelta) {
-	MLMatrix4 Rx, Ry;
-	static float x = PI * 0.25f;
-	Matrix_RotationX(&Rx, x);
+	MLMatrix4 Ry;
+	//static float x = PI * 0.25f;
+	//Matrix_RotationX(&Rx, x);
 	static float y = 0.0f;
 	Matrix_RotationY(&Ry, y);
 	y += timeDelta;
 	if (y >= PI * 2.0f)
 		y = 0.0f;
-	MLMatrix4 p = Rx * Ry;
+	MLMatrix4 p = Ry;
 	device->SetTransform(TRANSFORM_WORLD, &p);
 	// clear back and depth buffer
-	device->Clear(0xffffffff, 1.0f);
+	device->Clear(0x00000000, 1.0f);
 	// draw
 	device->SetStreamSource(vb);
 	device->SetIndices(ib);
-	device->DrawIndexedPrimitive(0, 12);
+	//device->DrawIndexedPrimitive(0, 12);
+	device->DrawPrimitive(0, 4);
 	device->Present();
 	return true;
 }
