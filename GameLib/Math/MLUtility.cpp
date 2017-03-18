@@ -108,6 +108,55 @@ MLMatrix4 *Matrix_Scaling(MLMatrix4 *pOut, float sx, float sy, float sz) {
 	return pOut;
 }
 
+MLMatrix4 *Matrix_Transpose(MLMatrix4 *pOut, const MLMatrix4 *pM) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			pOut->m[j][i] = pM->m[i][j];
+		}
+	}
+	return pOut;
+}
+
+MLMatrix4 *Matrix_Inverse(MLMatrix4 *pOut, const MLMatrix4 *pM) {
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			pOut->m[j][i] = Cofactor3x3(pM, i, j);
+		}
+	}
+
+	float det = 0.0f;
+	for (int i = 0; i < 4; i++)
+		det += pM->m[0][i] * pOut->m[i][0];
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			pOut->m[j][i] /= det;
+		}
+	}
+	return pOut;
+}
+
+float Cofactor3x3(const MLMatrix4 *pM, int row, int col) {
+	int m[3][3];
+	int x = 0;
+	for (int i = 0; i < 4; i++) {
+		if (i == row)
+			continue;
+		int y = 0;
+		for (int j = 0; j < 4; j++) {
+			if (j == col)
+				continue;
+			m[x][y++] = pM->m[i][j];
+		}
+		x++;
+	}
+	float res = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] -
+		m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][2] * m[2][0]);
+	if ((row + col) & 0x1)
+		res = -res;
+	return res;
+}
+
 float Plane_DotCoord(const MLPlane *pP, const MLVector3 *pV) {
 	return Vec3_Dot(&MLVector3(pP->a, pP->b, pP->c), pV) + pP->d;
 }

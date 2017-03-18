@@ -43,6 +43,20 @@ struct Color {
 	Color(float r, float g, float b) {
 		_r = r; _g = g; _b = b;
 	}
+	Color operator * (const Color &rhs) {
+		Color c;
+		c._r = this->_r * rhs._r;
+		c._g = this->_g * rhs._g;
+		c._b = this->_b * rhs._b;
+		return c;
+	}
+	Color operator * (float rhs) {
+		Color c;
+		c._r *= rhs;
+		c._g *= rhs;
+		c._b *= rhs;
+		return c;
+	}
 };
 
 struct FPVertex {
@@ -52,6 +66,8 @@ struct FPVertex {
 	float _r, _g, _b;
 	// normal
 	float _nx, _ny, _nz;
+	// light color
+	Color _lightcolor;
 	// constructor
 	FPVertex() {}
 	FPVertex(float x, float y, float z) {
@@ -81,8 +97,8 @@ struct Light {
 	Color Diffiuse;
 	Color Ambient;
 	Color Specular;
-	MLVector4 Position;
-	MLVector4 Direction;
+	MLVector3 Position;
+	MLVector3 Direction;
 	float Range;
 	float Falloff;
 	float Attenuation0;
@@ -187,6 +203,37 @@ struct Device {
 
 	void LightEnable(bool value) {
 		_lightenable = value;
+	}
+
+	// return light direction normalized vector
+	MLVector3 GetLightDirection() {
+		MLVector3 res;
+		switch (_light->Type) {
+		case LIGHT_DIRECTIONAL:
+			Vec3_Normalize(&res, &_light->Direction);
+			res = -res;
+			break;
+		}
+		return res;
+	}
+
+	Color GetDiffuseColor(const FPVertex *v) {
+		MLVector3 normal;
+		Vec3_Normalize(&normal, &MLVector3(v->_nx, v->_ny, v->_nz));
+		MLVector3 lightdir = GetLightDirection();
+		float cosine = max(0, Vec3_Dot(&normal, &lightdir));
+		Color diffuse = _mtrl->Diffuse * _light->Diffiuse * cosine;
+		return diffuse;
+	}
+
+	Color GetSpecularColor(const FPVertex *v) {
+		Color specular(0.0f, 0.0f, 0.0f);
+		MLVector3 normal;
+		Vec3_Normalize(&normal, &MLVector3(v->_nx, v->_ny, v->_nz));
+		MLVector3 lightdir = GetLightDirection();
+		if (Vec3_Dot(&normal, &lightdir) <= 0)
+			return specular;
+
 	}
 
 	// clip
@@ -414,6 +461,28 @@ struct Device {
 	}
 
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
+		// if enable light, calculate vertex light color in view as view vector can be easy
+		if (_lightenable) {
+			MLVector4 p1, p2, p3;
+			MLVector4 n1, n2, n3;
+			MLMatrix4 tran = _world * _view;
+			Vec4_Transform(&p1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran);
+			Vec4_Transform(&p2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran);
+			Vec4_Transform(&p3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran);
+			// normal transformation
+			MLMatrix4 ttran, ntran;
+			Matrix_Transpose(&ttran, &tran);
+			Matrix_Inverse(&ntran, &ttran);
+			Vec4_Transform(&n1, &MLVector4(v1->_nx, v1->_ny, v1->_nz, 0.0f), &ntran);
+			Vec4_Transform(&n2, &MLVector4(v2->_nx, v2->_ny, v2->_nz, 0.0f), &ntran);
+			Vec4_Transform(&n3, &MLVector4(v3->_nx, v3->_ny, v3->_nz, 0.0f), &ntran);
+
+			Color emissive = _mtrl->Emissive;
+			Color amibent = _mtrl->Ambient * _light->Ambient;
+			GetDiffuseColor(v1);
+			GetDiffuseColor(v2);
+			GetDiffuseColor(v3);
+		}
 		MLVector4 p1, p2, p3;
 		// transform to projection for cliping
 		MLMatrix4 tran = _world * _view * _proj;
@@ -624,7 +693,7 @@ void InitLight() {
 	light.Diffiuse = Color(1.0f, 1.0f, 1.0f);
 	light.Specular = Color(0.3f, 0.3f, 0.3f);
 	light.Ambient = Color(0.6f, 0.6f, 0.6f);
-	light.Direction = MLVector4(1.0f, 0.0f, 0.0f, 0.0f);
+	light.Direction = MLVector3(1.0f, 0.0f, 0.0f);
 	device->SetLight(&light);
 	device->LightEnable(true);
 }

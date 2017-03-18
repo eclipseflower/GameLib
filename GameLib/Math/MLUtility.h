@@ -32,6 +32,13 @@ MLMatrix4 *Matrix_RotationZ(MLMatrix4 *pOut, float angle);
 
 MLMatrix4 *Matrix_Scaling(MLMatrix4 *pOut, float sx, float sy, float sz);
 
+MLMatrix4 *Matrix_Transpose(MLMatrix4 *pOut, const MLMatrix4 *pM);
+
+MLMatrix4 *Matrix_Inverse(MLMatrix4 *pOut, const MLMatrix4 *pM);
+
+// calculate 3x3 cofactor
+float Cofactor3x3(const MLMatrix4 *pM, int row, int col);
+
 // param: plane and point
 // out: np + d
 float Plane_DotCoord(const MLPlane *pP, const MLVector3 *pV);
