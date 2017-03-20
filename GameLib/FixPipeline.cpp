@@ -52,10 +52,28 @@ struct Color {
 	}
 	Color operator * (float rhs) {
 		Color c;
-		c._r *= rhs;
-		c._g *= rhs;
-		c._b *= rhs;
+		c._r = this->_r * rhs;
+		c._g = this->_g * rhs;
+		c._b = this->_b * rhs;
 		return c;
+	}
+	Color operator + (const Color &rhs) {
+		Color c;
+		c._r = this->_r + rhs._r;
+		c._g = this->_g + rhs._g;
+		c._b = this->_b + rhs._b;
+		return c;
+	}
+	unsigned int ToUINT() {
+		int r = (int)(_r * 255.0f);
+		int g = (int)(_g * 255.0f);
+		int b = (int)(_b * 255.0f);
+		r = max(0, min(r, 255));
+		g = max(0, min(g, 255));
+		b = max(0, min(b, 255));
+		unsigned int color = (r << 16) | (g << 8) | b;
+		assert(r >= 0 && g >= 0 && b >= 0);
+		return color;
 	}
 };
 
@@ -194,46 +212,124 @@ struct Device {
 	}
 
 	void SetMaterial(Material *mtrl) {
-		_mtrl = mtrl;
+		_mtrl = new Material(*mtrl);
 	}
 
 	void SetLight(Light *light) {
-		_light = light;
+		_light = new Light(*light);
 	}
 
 	void LightEnable(bool value) {
 		_lightenable = value;
 	}
 
-	// return light direction normalized vector
-	MLVector3 GetLightDirection() {
+	// return light direction normalized vector in view
+	MLVector3 GetLightDirection(const MLVector4 *pV) {
 		MLVector3 res;
+		MLVector4 tran;
 		switch (_light->Type) {
 		case LIGHT_DIRECTIONAL:
-			Vec3_Normalize(&res, &_light->Direction);
+			Vec4_Transform(&tran, &MLVector4(_light->Direction.x, _light->Direction.y,
+				_light->Direction.z, 0.0f), &_view);
+			Vec3_Normalize(&res, &MLVector3(tran.x, tran.y, tran.z));
 			res = -res;
+			break;
+		case LIGHT_POINT:
+		case LIGHT_SPOT:
+			Vec4_Transform(&tran, &MLVector4(_light->Position.x, _light->Position.y,
+				_light->Position.z, 0.0f), &_view);
+			Vec3_Normalize(&res, &MLVector3(tran.x - pV->x, tran.y - pV->y, tran.z - pV->z));
 			break;
 		}
 		return res;
 	}
 
-	Color GetDiffuseColor(const FPVertex *v) {
+	// parameter: transformed normal and transformed vertex
+	Color GetDiffuseColor(const MLVector4 *pN, const MLVector4 *pV) {
 		MLVector3 normal;
-		Vec3_Normalize(&normal, &MLVector3(v->_nx, v->_ny, v->_nz));
-		MLVector3 lightdir = GetLightDirection();
-		float cosine = max(0, Vec3_Dot(&normal, &lightdir));
+		Vec3_Normalize(&normal, &MLVector3(pN->x, pN->y, pN->z));
+		MLVector3 lightdir = GetLightDirection(pV);
+		float cosine = max(0.0f, Vec3_Dot(&normal, &lightdir));
 		Color diffuse = _mtrl->Diffuse * _light->Diffiuse * cosine;
 		return diffuse;
 	}
 
-	Color GetSpecularColor(const FPVertex *v) {
+	// parameter: transformed normal and transformed vertex
+	Color GetSpecularColor(const MLVector4 *pN, const MLVector4 *pV) {
 		Color specular(0.0f, 0.0f, 0.0f);
 		MLVector3 normal;
-		Vec3_Normalize(&normal, &MLVector3(v->_nx, v->_ny, v->_nz));
-		MLVector3 lightdir = GetLightDirection();
+		Vec3_Normalize(&normal, &MLVector3(pN->x, pN->y, pN->z));
+		MLVector3 lightdir = GetLightDirection(pV);
 		if (Vec3_Dot(&normal, &lightdir) <= 0)
 			return specular;
+		MLVector3 view;
+		Vec3_Normalize(&view, &MLVector3(pV->x, pV->y, pV->z));
+		view = -view;
+		MLVector3 half;
+		Vec3_Normalize(&half, &(view + lightdir));
+		float cosine = max(0.0f, Vec3_Dot(&normal, &half));
+		specular = _mtrl->Specular * _light->Specular * powf(cosine, _mtrl->Power);
+		return specular;
+	}
 
+	// get the final light color(emissive + amibent + diffuse + specular)
+	// parameter: transformed normal and transformed vertex
+	Color GetLightColor(const MLVector4 *pN, const MLVector4 *pV) {
+		Color emissive = _mtrl->Emissive;
+		Color amibent = _mtrl->Ambient * _light->Ambient;
+		Color diffuse, specular, finalcolor;
+		float attenuation = GetLightAttenuation(pV);
+		float spotfactor = GetSpotFactor(pV);
+		if (Float_Equals(attenuation, 0.0f) || Float_Equals(spotfactor, 0.0f)) {
+			finalcolor = emissive + amibent;
+		}
+		else {
+			diffuse = GetDiffuseColor(pN, pV);
+			specular = GetSpecularColor(pN, pV);
+			float factor = attenuation * spotfactor;
+			finalcolor = emissive + amibent + (diffuse + specular) * factor;
+		}
+		return finalcolor;
+	}
+
+	float GetLightAttenuation(const MLVector4 *pV) {
+		if (_light->Type == LIGHT_POINT || _light->Type == LIGHT_SPOT) {
+			MLVector4 tran;
+			Vec4_Transform(&tran, &MLVector4(_light->Position.x, _light->Position.y,
+				_light->Position.z, 0.0f), &_view);
+			float dis = Vec3_Length(&MLVector3(tran.x - pV->x, tran.y - pV->y, tran.z - pV->z));
+			if (dis > _light->Range)
+				return 0.0f;
+			float attenuation = 1.0f / (_light->Attenuation0 + _light->Attenuation1 * dis +
+				_light->Attenuation2 * dis * dis);
+			return attenuation;
+		}
+		return 1.0f;
+	}
+
+	float GetSpotFactor(const MLVector4 *pV) {
+		if (_light->Type == LIGHT_SPOT) {
+			MLVector4 tran1, tran2;
+			Vec4_Transform(&tran1, &MLVector4(_light->Direction.x, _light->Direction.y,
+				_light->Direction.z, 0.0f), &_view);
+			Vec4_Transform(&tran2, &MLVector4(_light->Position.x, _light->Position.y,
+				_light->Position.z, 0.0f), &_view);
+			MLVector3 dir1, dir2;
+			Vec3_Normalize(&dir1, &MLVector3(tran1.x, tran1.y, tran1.z));
+			Vec3_Normalize(&dir2, &MLVector3(pV->x - tran2.x, pV->y - tran2.y, pV->z - tran2.z));
+			float cosine = Vec3_Dot(&dir1, &dir2);
+			float costheta = cosf(_light->Theta * 0.5f);
+			float cosphi = cosf(_light->Phi * 0.5f);
+			if (cosine > costheta)
+				return 1.0f;
+			else if (cosine <= cosphi)
+				return 0.0f;
+			else {
+				float base = (cosine - cosphi) / (costheta - cosphi);
+				return powf(base, _light->Falloff);
+			}
+		}
+		return 1.0f;
 	}
 
 	// clip
@@ -325,14 +421,15 @@ struct Device {
 			float z = 1.0f / v._w;
 			if (v._z < _zbuf[xIndex][yIndex]) {
 				_zbuf[xIndex][yIndex] = v._z;
-				int r = (int)(v._r * z * 255.0f);
-				int g = (int)(v._g * z * 255.0f);
-				int b = (int)(v._b * z * 255.0f);
-				r = max(0, min(r, 255));
-				g = max(0, min(g, 255));
-				b = max(0, min(b, 255));
-				unsigned int color = (r << 16) | (g << 8) | b;
-				assert(r >= 0 && g >= 0 && b >= 0);
+				Color finalcolor;
+				if (_lightenable) {
+					Color vertexcolor = Color(v._r, v._g, v._b) * z;
+					Color lightcolor = v._lightcolor * z;
+					finalcolor = vertexcolor * lightcolor;
+				}
+				else
+					finalcolor = Color(v._r, v._g, v._b) * z;
+				unsigned int color = finalcolor.ToUINT();
 				SetBackBuffer(xIndex, yIndex, color);
 			}
 			VertexAdd(&v, step);
@@ -347,6 +444,9 @@ struct Device {
 		vOut->_r = LinearInterpolation(v1->_r, v2->_r, factor);
 		vOut->_g = LinearInterpolation(v1->_g, v2->_g, factor);
 		vOut->_b = LinearInterpolation(v1->_b, v2->_b, factor);
+		vOut->_lightcolor._r = LinearInterpolation(v1->_lightcolor._r, v2->_lightcolor._r, factor);
+		vOut->_lightcolor._g = LinearInterpolation(v1->_lightcolor._g, v2->_lightcolor._g, factor);
+		vOut->_lightcolor._b = LinearInterpolation(v1->_lightcolor._b, v2->_lightcolor._b, factor);
 	}
 
 	void VertexDivision(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
@@ -358,6 +458,9 @@ struct Device {
 		vOut->_r = (v2->_r - v1->_r) * oneoverfactor;
 		vOut->_g = (v2->_g - v1->_g) * oneoverfactor;
 		vOut->_b = (v2->_b - v1->_b) * oneoverfactor;
+		vOut->_lightcolor._r = (v2->_lightcolor._r - v1->_lightcolor._r) * oneoverfactor;
+		vOut->_lightcolor._g = (v2->_lightcolor._g - v1->_lightcolor._g) * oneoverfactor;
+		vOut->_lightcolor._b = (v2->_lightcolor._b - v1->_lightcolor._b) * oneoverfactor;
 	}
 
 	void VertexAdd(FPVertex *vOut, FPVertex *step) {
@@ -368,6 +471,9 @@ struct Device {
 		vOut->_r += step->_r;
 		vOut->_g += step->_g;
 		vOut->_b += step->_b;
+		vOut->_lightcolor._r += step->_lightcolor._r;
+		vOut->_lightcolor._g += step->_lightcolor._g;
+		vOut->_lightcolor._b += step->_lightcolor._b;
 	}
 
 	/**********************************************************************************
@@ -462,6 +568,7 @@ struct Device {
 
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		// if enable light, calculate vertex light color in view as view vector can be easy
+		Color lightcolor1, lightcolor2, lightcolor3;
 		if (_lightenable) {
 			MLVector4 p1, p2, p3;
 			MLVector4 n1, n2, n3;
@@ -476,12 +583,10 @@ struct Device {
 			Vec4_Transform(&n1, &MLVector4(v1->_nx, v1->_ny, v1->_nz, 0.0f), &ntran);
 			Vec4_Transform(&n2, &MLVector4(v2->_nx, v2->_ny, v2->_nz, 0.0f), &ntran);
 			Vec4_Transform(&n3, &MLVector4(v3->_nx, v3->_ny, v3->_nz, 0.0f), &ntran);
-
-			Color emissive = _mtrl->Emissive;
-			Color amibent = _mtrl->Ambient * _light->Ambient;
-			GetDiffuseColor(v1);
-			GetDiffuseColor(v2);
-			GetDiffuseColor(v3);
+			// calculate lighting
+			lightcolor1 = GetLightColor(&n1, &p1);
+			lightcolor2 = GetLightColor(&n2, &p2);
+			lightcolor3 = GetLightColor(&n3, &p3);
 		}
 		MLVector4 p1, p2, p3;
 		// transform to projection for cliping
@@ -525,6 +630,12 @@ struct Device {
 			r1._w = 1.0f / z1;
 			r2._w = 1.0f / z2;
 			r3._w = 1.0f / z3;
+			// remember to store light color / z if light enable
+			if (_lightenable) {
+				r1._lightcolor = lightcolor1 * r1._w;
+				r2._lightcolor = lightcolor2 * r2._w;
+				r3._lightcolor = lightcolor3 * r3._w;
+			}
 			// sort by y
 			if (p1.y < p2.y) {
 				if (p2.y < p3.y) {
@@ -689,11 +800,19 @@ void InitMaterial() {
 
 void InitLight() {
 	Light light;
-	light.Type = LIGHT_DIRECTIONAL;
+	light.Type = LIGHT_SPOT;
 	light.Diffiuse = Color(1.0f, 1.0f, 1.0f);
 	light.Specular = Color(0.3f, 0.3f, 0.3f);
 	light.Ambient = Color(0.6f, 0.6f, 0.6f);
-	light.Direction = MLVector3(1.0f, 0.0f, 0.0f);
+	light.Direction = MLVector3(0.0f, 0.0f, 1.0f);
+	light.Position = MLVector3(0.0f, 0.0f, -5.0f);
+	light.Range = 1000.0f;
+	light.Falloff = 1.0f;
+	light.Attenuation0 = 1.0f;
+	light.Attenuation1 = 0.0f;
+	light.Attenuation2 = 0.0f;
+	light.Theta = 0.4f;
+	light.Phi = 0.9f;
 	device->SetLight(&light);
 	device->LightEnable(true);
 }

@@ -137,7 +137,7 @@ MLMatrix4 *Matrix_Inverse(MLMatrix4 *pOut, const MLMatrix4 *pM) {
 }
 
 float Cofactor3x3(const MLMatrix4 *pM, int row, int col) {
-	int m[3][3];
+	float m[3][3];
 	int x = 0;
 	for (int i = 0; i < 4; i++) {
 		if (i == row)
