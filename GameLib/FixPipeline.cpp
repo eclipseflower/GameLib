@@ -28,6 +28,11 @@ enum LIGHTTYPE {
 	LIGHT_DIRECTIONAL = 4,
 };
 
+enum SHADETYPE {
+	SHADE_GOURAUD = 1,
+	SHADE_PHONG = 2,
+};
+
 bool OpenConsoleDebug() {
 	static bool open = false;
 	if (!open) {
@@ -86,6 +91,8 @@ struct FPVertex {
 	float _nx, _ny, _nz;
 	// light color
 	Color _lightcolor;
+	// position in view
+	MLVector3 _vpos;
 	// constructor
 	FPVertex() {}
 	FPVertex(float x, float y, float z) {
@@ -150,6 +157,8 @@ struct Device {
 	MLMatrix4 _proj;
 	// render state
 	FILLTYPE _rstate;
+	// shade mode
+	SHADETYPE _shade;
 	// material
 	Material *_mtrl;
 	// light
@@ -192,6 +201,10 @@ struct Device {
 	
 	void SetRenderState(FILLTYPE value) {
 		_rstate = value;
+	}
+
+	void SetShadeMode(SHADETYPE value) {
+		_shade = value;
 	}
 
 	void Clear(unsigned int color, float z) {
@@ -424,7 +437,14 @@ struct Device {
 				Color finalcolor;
 				if (_lightenable) {
 					Color vertexcolor = Color(v._r, v._g, v._b) * z;
-					Color lightcolor = v._lightcolor * z;
+					Color lightcolor;
+					if(_shade == SHADE_GOURAUD)
+						lightcolor = v._lightcolor * z;
+					else if (_shade == SHADE_PHONG) {
+						MLVector4 fragN(v._nx * z, v._ny * z, v._nz * z, 0.0f);
+						MLVector4 fragV(v._vpos.x * z, v._vpos.y * z, v._vpos.z * z, 1.0f);
+						lightcolor = GetLightColor(&fragN, &fragV);
+					}
 					finalcolor = vertexcolor * lightcolor;
 				}
 				else
@@ -444,9 +464,15 @@ struct Device {
 		vOut->_r = LinearInterpolation(v1->_r, v2->_r, factor);
 		vOut->_g = LinearInterpolation(v1->_g, v2->_g, factor);
 		vOut->_b = LinearInterpolation(v1->_b, v2->_b, factor);
+		vOut->_nx = LinearInterpolation(v1->_nx, v2->_nx, factor);
+		vOut->_ny = LinearInterpolation(v1->_ny, v2->_ny, factor);
+		vOut->_nz = LinearInterpolation(v1->_nz, v2->_nz, factor);
 		vOut->_lightcolor._r = LinearInterpolation(v1->_lightcolor._r, v2->_lightcolor._r, factor);
 		vOut->_lightcolor._g = LinearInterpolation(v1->_lightcolor._g, v2->_lightcolor._g, factor);
 		vOut->_lightcolor._b = LinearInterpolation(v1->_lightcolor._b, v2->_lightcolor._b, factor);
+		vOut->_vpos.x = LinearInterpolation(v1->_vpos.x, v2->_vpos.x, factor);
+		vOut->_vpos.y = LinearInterpolation(v1->_vpos.y, v2->_vpos.y, factor);
+		vOut->_vpos.z = LinearInterpolation(v1->_vpos.z, v2->_vpos.z, factor);
 	}
 
 	void VertexDivision(FPVertex *vOut, const FPVertex *v1, const FPVertex *v2, float factor) {
@@ -458,9 +484,15 @@ struct Device {
 		vOut->_r = (v2->_r - v1->_r) * oneoverfactor;
 		vOut->_g = (v2->_g - v1->_g) * oneoverfactor;
 		vOut->_b = (v2->_b - v1->_b) * oneoverfactor;
+		vOut->_nx = (v2->_nx - v1->_nx) * oneoverfactor;
+		vOut->_ny = (v2->_ny - v1->_ny) * oneoverfactor;
+		vOut->_nz = (v2->_nz - v1->_nz) * oneoverfactor;
 		vOut->_lightcolor._r = (v2->_lightcolor._r - v1->_lightcolor._r) * oneoverfactor;
 		vOut->_lightcolor._g = (v2->_lightcolor._g - v1->_lightcolor._g) * oneoverfactor;
 		vOut->_lightcolor._b = (v2->_lightcolor._b - v1->_lightcolor._b) * oneoverfactor;
+		vOut->_vpos.x = (v2->_vpos.x - v1->_vpos.x) * oneoverfactor;
+		vOut->_vpos.y = (v2->_vpos.y - v1->_vpos.y) * oneoverfactor;
+		vOut->_vpos.z = (v2->_vpos.z - v1->_vpos.z) * oneoverfactor;
 	}
 
 	void VertexAdd(FPVertex *vOut, FPVertex *step) {
@@ -471,9 +503,15 @@ struct Device {
 		vOut->_r += step->_r;
 		vOut->_g += step->_g;
 		vOut->_b += step->_b;
+		vOut->_nx += step->_nx;
+		vOut->_ny += step->_ny;
+		vOut->_nz += step->_nz;
 		vOut->_lightcolor._r += step->_lightcolor._r;
 		vOut->_lightcolor._g += step->_lightcolor._g;
 		vOut->_lightcolor._b += step->_lightcolor._b;
+		vOut->_vpos.x += step->_vpos.x;
+		vOut->_vpos.y += step->_vpos.y;
+		vOut->_vpos.z += step->_vpos.z;
 	}
 
 	/**********************************************************************************
@@ -569,13 +607,13 @@ struct Device {
 	void DrawOnePrimitive(const FPVertex *v1, const FPVertex *v2, const FPVertex *v3) {
 		// if enable light, calculate vertex light color in view as view vector can be easy
 		Color lightcolor1, lightcolor2, lightcolor3;
+		MLVector4 vp1, vp2, vp3;
+		MLVector4 n1, n2, n3;
 		if (_lightenable) {
-			MLVector4 p1, p2, p3;
-			MLVector4 n1, n2, n3;
 			MLMatrix4 tran = _world * _view;
-			Vec4_Transform(&p1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran);
-			Vec4_Transform(&p2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran);
-			Vec4_Transform(&p3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran);
+			Vec4_Transform(&vp1, &MLVector4(v1->_x, v1->_y, v1->_z, v1->_w), &tran);
+			Vec4_Transform(&vp2, &MLVector4(v2->_x, v2->_y, v2->_z, v2->_w), &tran);
+			Vec4_Transform(&vp3, &MLVector4(v3->_x, v3->_y, v3->_z, v3->_w), &tran);
 			// normal transformation
 			MLMatrix4 ttran, ntran;
 			Matrix_Transpose(&ttran, &tran);
@@ -584,9 +622,11 @@ struct Device {
 			Vec4_Transform(&n2, &MLVector4(v2->_nx, v2->_ny, v2->_nz, 0.0f), &ntran);
 			Vec4_Transform(&n3, &MLVector4(v3->_nx, v3->_ny, v3->_nz, 0.0f), &ntran);
 			// calculate lighting
-			lightcolor1 = GetLightColor(&n1, &p1);
-			lightcolor2 = GetLightColor(&n2, &p2);
-			lightcolor3 = GetLightColor(&n3, &p3);
+			if (_shade == SHADE_GOURAUD) {
+				lightcolor1 = GetLightColor(&n1, &vp1);
+				lightcolor2 = GetLightColor(&n2, &vp2);
+				lightcolor3 = GetLightColor(&n3, &vp3);
+			}
 		}
 		MLVector4 p1, p2, p3;
 		// transform to projection for cliping
@@ -623,18 +663,28 @@ struct Device {
 				return;
 			if (Float_Equals(p1.x, p2.x) && Float_Equals(p2.x, p3.x))
 				return;
-			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / z1, v1->_g / z1, v1->_b / z1);
-			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / z2, v2->_g / z2, v2->_b / z2);
-			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / z3, v3->_g / z3, v3->_b / z3);
+			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / z1, v1->_g / z1, v1->_b / z1, n1.x / z1, n1.y / z1,
+				n1.z / z1);
+			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / z2, v2->_g / z2, v2->_b / z2, n2.x / z2, n2.y / z2,
+				n2.z / z2);
+			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / z3, v3->_g / z3, v3->_b / z3, n3.x / z3, n3.y / z3,
+				n3.z / z3);
 			// remember to store real z
 			r1._w = 1.0f / z1;
 			r2._w = 1.0f / z2;
 			r3._w = 1.0f / z3;
-			// remember to store light color / z if light enable
+			// remember to store light color / z or view xyz / z if light enable
 			if (_lightenable) {
-				r1._lightcolor = lightcolor1 * r1._w;
-				r2._lightcolor = lightcolor2 * r2._w;
-				r3._lightcolor = lightcolor3 * r3._w;
+				if (_shade == SHADE_GOURAUD) {
+					r1._lightcolor = lightcolor1 * r1._w;
+					r2._lightcolor = lightcolor2 * r2._w;
+					r3._lightcolor = lightcolor3 * r3._w;
+				}
+				else if (_shade == SHADE_PHONG) {
+					r1._vpos = MLVector3(vp1.x, vp1.y, vp1.z) * r1._w;
+					r2._vpos = MLVector3(vp2.x, vp2.y, vp2.z) * r2._w;
+					r3._vpos = MLVector3(vp3.x, vp3.y, vp3.z) * r3._w;
+				}
 			}
 			// sort by y
 			if (p1.y < p2.y) {
@@ -842,6 +892,7 @@ bool Setup() {
 	device->SetTransform(TRANSFORM_PROJECTION, &proj);
 	// set render state
 	device->SetRenderState(FILL_COLOR);
+	device->SetShadeMode(SHADE_PHONG);
 	return true;
 }
 
