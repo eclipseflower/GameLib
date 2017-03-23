@@ -70,5 +70,8 @@
     <Image Include="dx5_logo.bmp">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="crate.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

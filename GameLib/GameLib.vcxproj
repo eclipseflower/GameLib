@@ -171,6 +171,7 @@
     <ClCompile Include="Math\MLVector.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="crate.jpg" />
     <Image Include="dx5_logo.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
