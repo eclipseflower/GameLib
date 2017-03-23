@@ -5,6 +5,8 @@ IDirect3DVertexBuffer9 *VB = 0;
 IDirect3DIndexBuffer9 *IB = 0;
 IDirect3DVertexBuffer9 *Triangle = 0;
 IDirect3DVertexBuffer9 *Pyramid = 0;
+IDirect3DVertexBuffer9 *Quad = 0;
+IDirect3DTexture9 *Tex = 0;
 ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
 ID3DXMesh *Teapot = 0;
 D3DMATERIAL9 Mtrl[5];
@@ -42,6 +44,17 @@ struct LightVertex {
 	float _x, _y, _z;
 	float _nx, _ny, _nz;
 	static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL;
+};
+
+struct TexVertex {
+	TexVertex() {}
+	TexVertex(float x, float y, float z, float nx, float ny, float nz, float u, float v) {
+		_x = x; _y = y; _z = z; _nx = nx; _ny = ny; _nz = nz; _u = u; _v = v;
+	}
+	float _x, _y, _z;
+	float _nx, _ny, _nz;
+	float _u, _v;
+	static const DWORD FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 };
 
 // chapter 3
@@ -456,6 +469,44 @@ bool Light_Display(float timeDelta) {
 	return true;
 }
 
+// chapter 6
+bool TexQuad_Setup() {
+	Device->CreateVertexBuffer(6 * sizeof(TexVertex), D3DUSAGE_WRITEONLY, Vertex::FVF,
+		D3DPOOL_MANAGED, &Quad, 0);
+	TexVertex *v;
+	Quad->Lock(0, 0, (void **)&v, 0);
+	v[0] = TexVertex(-1.0f, -1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 0.0f, 3.0f);
+	v[1] = TexVertex(-1.0f, 1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
+	v[2] = TexVertex(1.0f, 1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 3.0f, 0.0f);
+	v[3] = TexVertex(-1.0f, -1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 0.0f, 3.0f);
+	v[4] = TexVertex(1.0f, 1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 3.0f, 0.0f);
+	v[5] = TexVertex(1.0f, -1.0f, 1.25f, 0.0f, 0.0f, -1.0f, 3.0f, 3.0f);
+	Quad->Unlock();
+
+	D3DXCreateTextureFromFile(Device, L"dx5_logo.bmp", &Tex);
+	Device->SetTexture(0, Tex);
+	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
+	Device->SetRenderState(D3DRS_LIGHTING, false);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+	return true;
+}
+
+bool TexQuad_Display(float timeDelta) {
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+	Device->BeginScene();
+	Device->SetStreamSource(0, Quad, 0, sizeof(TexVertex));
+	Device->SetFVF(TexVertex::FVF);
+	Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 2);
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 int D3DDemo(HINSTANCE hinstance,
 	HINSTANCE prevInstance,
 	PSTR cmdLine,
@@ -469,8 +520,8 @@ int D3DDemo(HINSTANCE hinstance,
 		return 0;
 	}
 
-	Cube_Setup();
-	D3DLib::EnterMsgLoop(Cube_Display);
+	TexQuad_Setup();
+	D3DLib::EnterMsgLoop(TexQuad_Display);
 
 	Device->Release();
 

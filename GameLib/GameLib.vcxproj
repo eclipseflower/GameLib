@@ -170,6 +170,9 @@
     <ClCompile Include="Math\MLUtility.cpp" />
     <ClCompile Include="Math\MLVector.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="dx5_logo.bmp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

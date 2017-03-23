@@ -7,6 +7,6 @@ int WINAPI WinMain(HINSTANCE hinstance,
 	PSTR cmdLine,
 	int showCmd)
 {
-	FixPipeline(hinstance, prevInstance, cmdLine, showCmd);
+	D3DDemo(hinstance, prevInstance, cmdLine, showCmd);
 	return 0;
 }
