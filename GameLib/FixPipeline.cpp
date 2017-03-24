@@ -40,6 +40,11 @@ enum SHADETYPE {
 	SHADE_PHONG = 2,
 };
 
+enum SAMPLETYPE {
+	SAMPLE_POINT = 1,
+	SAMPLE_LINEAR = 2,
+};
+
 bool OpenConsoleDebug() {
 	static bool open = false;
 	if (!open) {
@@ -160,21 +165,21 @@ struct Light {
 };
 
 struct Texture {
-	unsigned int _width, _height;
+	int _width, _height;
 	Color **_pixelbuf;
-	Texture(unsigned int width, unsigned int height) {
+	Texture(int width, int height) {
 		_width = width; _height = height;
 		_pixelbuf = new Color *[_width];
-		for (unsigned int i = 0; i < _width; i++)
+		for (int i = 0; i < _width; i++)
 			_pixelbuf[i] = new Color[_height];
 	}
 	Texture(const Texture &tex) {
 		_width = tex._width;
 		_height = tex._height;
 		_pixelbuf = new Color *[_width];
-		for (unsigned int i = 0; i < _width; i++) {
+		for (int i = 0; i < _width; i++) {
 			_pixelbuf[i] = new Color[_height];
-			for (unsigned int j = 0; j < _height; j++)
+			for (int j = 0; j < _height; j++)
 				_pixelbuf[i][j] = tex._pixelbuf[i][j];
 		}
 	}
@@ -234,6 +239,8 @@ struct Device {
 	FILLTYPE _rstate;
 	// shade mode
 	SHADETYPE _shade;
+	// sample state
+	SAMPLETYPE _sample;
 	// material
 	Material *_mtrl;
 	// light
@@ -282,6 +289,10 @@ struct Device {
 
 	void SetShadeMode(SHADETYPE value) {
 		_shade = value;
+	}
+
+	void SetSampleState(SAMPLETYPE value) {
+		_sample = value;
 	}
 
 	void Clear(unsigned int color, float z) {
@@ -520,9 +531,25 @@ struct Device {
 				if(_rstate == FILL_COLOR)
 					vertexcolor = Color(v._r, v._g, v._b) * z;
 				else if (_rstate == FILL_TEXTURE) {
-					int x = (_tex->_width - 1) * v._u * z;
-					int y = (_tex->_height - 1) * v._v * z;
-					vertexcolor = _tex->_pixelbuf[x][y];
+					if (_sample == SAMPLE_POINT) {
+						int x = (int)((_tex->_width - 1) * v._u * z);
+						int y = (int)((_tex->_height - 1) * v._v * z);
+						vertexcolor = _tex->_pixelbuf[x][y];
+					}
+					else if (_sample == SAMPLE_LINEAR) {
+						float x = (_tex->_width - 1) * v._u * z;
+						float y = (_tex->_height - 1) * v._v * z;
+						float du = x - floorf(x);
+						float dv = y - floorf(y);
+						int floorx = (int)floorf(x);
+						int floory = (int)floorf(y);
+						int ceilx = min((int)ceilf(x), _tex->_width - 1);
+						int ceily = min((int)ceilf(y), _tex->_height - 1);
+						vertexcolor = _tex->_pixelbuf[floorx][floory] * du * dv +
+							_tex->_pixelbuf[ceilx][floory] * (1.0f - du) * dv +
+							_tex->_pixelbuf[floorx][ceily] * du * (1.0f - dv) +
+							_tex->_pixelbuf[ceilx][ceily] * (1.0f - du) * (1.0f - dv);
+					}
 				}
 				if (_lightenable) {
 					Color lightcolor;
@@ -1010,6 +1037,7 @@ void InitTexture() {
 	Texture *tex;
 	CreateTextureFromFile(L"crate.jpg", tex);
 	device->SetTexture(tex);
+	device->SetSampleState(SAMPLE_LINEAR);
 }
 
 bool Setup() {
