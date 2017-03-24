@@ -1,9 +1,15 @@
-// Fix Pipeline implementation, just a demo
-// Reference: https://github.com/skywind3000/mini3d
+/****************************************************
+* Fix Pipeline implementation, just a demo
+* Reference: 
+* https://github.com/skywind3000/mini3d
+* https://github.com/zhangbaochong/Tiny3D
+*/ 
+
 #include <Windows.h>
 #include <cstdio>
 #include "Math/MLUtility.h"
 #include <assert.h>
+#include <gdiplus.h>
 #pragma warning(disable:4996)
 
 const int Width = 800;
@@ -20,6 +26,7 @@ enum TRANSFORMTYPE
 enum FILLTYPE {
 	FILL_WIREFRAME = 1,
 	FILL_COLOR = 2,
+	FILL_TEXTURE = 4,
 };
 
 enum LIGHTTYPE {
@@ -89,23 +96,42 @@ struct FPVertex {
 	float _r, _g, _b;
 	// normal
 	float _nx, _ny, _nz;
+	// texture
+	float _u, _v;
 	// light color
 	Color _lightcolor;
 	// position in view
 	MLVector3 _vpos;
 	// constructor
 	FPVertex() {}
+	// XYZ
 	FPVertex(float x, float y, float z) {
 		_x = x; _y = y; _z = z; _w = 1.0f;
 	}
+	// XYZ | COLOR
 	FPVertex(float x, float y, float z, float r, float g, float b) {
 		_x = x; _y = y; _z = z; _w = 1.0f;
 		_r = r; _g = g; _b = b;
 	}
+	// XYZ | COLOR | NORMAL
 	FPVertex(float x, float y, float z, float r, float g, float b, float nx, float ny, float nz) {
 		_x = x; _y = y; _z = z; _w = 1.0f;
 		_r = r; _g = g; _b = b;
 		_nx = nx; _ny = ny; _nz = nz;
+	}
+	// XYZ | NORMAL | TEX
+	FPVertex(float x, float y, float z, float nx, float ny, float nz, float u, float v) {
+		_x = x; _y = y; _z = z; _w = 1.0f;
+		_nx = nx; _ny = ny; _nz = nz;
+		_u = u; _v = v;
+	}
+	// XYZ | COLOR | NORMAL | TEX
+	FPVertex(float x, float y, float z, float r, float g, float b, float nx, float ny, float nz, 
+		float u, float v) {
+		_x = x; _y = y; _z = z; _w = 1.0f;
+		_r = r; _g = g; _b = b;
+		_nx = nx; _ny = ny; _nz = nz;
+		_u = u; _v = v;
 	}
 };
 
@@ -132,6 +158,55 @@ struct Light {
 	float Theta;
 	float Phi;
 };
+
+struct Texture {
+	unsigned int _width, _height;
+	Color **_pixelbuf;
+	Texture(unsigned int width, unsigned int height) {
+		_width = width; _height = height;
+		_pixelbuf = new Color *[_width];
+		for (unsigned int i = 0; i < _width; i++)
+			_pixelbuf[i] = new Color[_height];
+	}
+	Texture(const Texture &tex) {
+		_width = tex._width;
+		_height = tex._height;
+		_pixelbuf = new Color *[_width];
+		for (unsigned int i = 0; i < _width; i++) {
+			_pixelbuf[i] = new Color[_height];
+			for (unsigned int j = 0; j < _height; j++)
+				_pixelbuf[i][j] = tex._pixelbuf[i][j];
+		}
+	}
+};
+
+void CreateTextureFromFile(LPCWSTR filename, Texture *&tex) {
+	Gdiplus::GdiplusStartupInput gdiplusstartupinput;
+	ULONG_PTR gdiplustoken;
+	GdiplusStartup(&gdiplustoken, &gdiplusstartupinput, nullptr);
+
+	Gdiplus::Bitmap* bmp = new Gdiplus::Bitmap(filename);
+	if (!bmp) {
+		delete bmp;
+		Gdiplus::GdiplusShutdown(gdiplustoken);
+	}
+	else {
+		unsigned int width = bmp->GetWidth();
+		unsigned int height = bmp->GetHeight();
+		tex = new Texture(width, height);
+
+		Gdiplus::Color color;
+		for (unsigned int i = 0; i < width; i++) {
+			for (unsigned int j = 0; j < height; j++) {
+				bmp->GetPixel(i, j, &color);
+				tex->_pixelbuf[i][height - 1 - j] = Color(color.GetRed() / 255.0f, 
+					color.GetGreen() / 255.0f, color.GetBlue() / 255.0f);
+			}
+		}
+		delete bmp;
+		Gdiplus::GdiplusShutdown(gdiplustoken);
+	}
+}
 
 // create device
 struct Device {
@@ -165,6 +240,8 @@ struct Device {
 	Light *_light;
 	// light status
 	bool _lightenable;
+	// texture
+	Texture *_tex;
 
 	Device() {}
 
@@ -230,6 +307,10 @@ struct Device {
 
 	void SetLight(Light *light) {
 		_light = new Light(*light);
+	}
+
+	void SetTexture(Texture *tex) {
+		_tex = new Texture(*tex);
 	}
 
 	void LightEnable(bool value) {
@@ -435,8 +516,15 @@ struct Device {
 			if (v._z < _zbuf[xIndex][yIndex]) {
 				_zbuf[xIndex][yIndex] = v._z;
 				Color finalcolor;
+				Color vertexcolor;
+				if(_rstate == FILL_COLOR)
+					vertexcolor = Color(v._r, v._g, v._b) * z;
+				else if (_rstate == FILL_TEXTURE) {
+					int x = (_tex->_width - 1) * v._u * z;
+					int y = (_tex->_height - 1) * v._v * z;
+					vertexcolor = _tex->_pixelbuf[x][y];
+				}
 				if (_lightenable) {
-					Color vertexcolor = Color(v._r, v._g, v._b) * z;
 					Color lightcolor;
 					if(_shade == SHADE_GOURAUD)
 						lightcolor = v._lightcolor * z;
@@ -448,7 +536,7 @@ struct Device {
 					finalcolor = vertexcolor * lightcolor;
 				}
 				else
-					finalcolor = Color(v._r, v._g, v._b) * z;
+					finalcolor = vertexcolor;
 				unsigned int color = finalcolor.ToUINT();
 				SetBackBuffer(xIndex, yIndex, color);
 			}
@@ -467,6 +555,8 @@ struct Device {
 		vOut->_nx = LinearInterpolation(v1->_nx, v2->_nx, factor);
 		vOut->_ny = LinearInterpolation(v1->_ny, v2->_ny, factor);
 		vOut->_nz = LinearInterpolation(v1->_nz, v2->_nz, factor);
+		vOut->_u = LinearInterpolation(v1->_u, v2->_u, factor);
+		vOut->_v = LinearInterpolation(v1->_v, v2->_v, factor);
 		vOut->_lightcolor._r = LinearInterpolation(v1->_lightcolor._r, v2->_lightcolor._r, factor);
 		vOut->_lightcolor._g = LinearInterpolation(v1->_lightcolor._g, v2->_lightcolor._g, factor);
 		vOut->_lightcolor._b = LinearInterpolation(v1->_lightcolor._b, v2->_lightcolor._b, factor);
@@ -487,6 +577,8 @@ struct Device {
 		vOut->_nx = (v2->_nx - v1->_nx) * oneoverfactor;
 		vOut->_ny = (v2->_ny - v1->_ny) * oneoverfactor;
 		vOut->_nz = (v2->_nz - v1->_nz) * oneoverfactor;
+		vOut->_u = (v2->_u - v1->_u) * oneoverfactor;
+		vOut->_v = (v2->_v - v1->_v) * oneoverfactor;
 		vOut->_lightcolor._r = (v2->_lightcolor._r - v1->_lightcolor._r) * oneoverfactor;
 		vOut->_lightcolor._g = (v2->_lightcolor._g - v1->_lightcolor._g) * oneoverfactor;
 		vOut->_lightcolor._b = (v2->_lightcolor._b - v1->_lightcolor._b) * oneoverfactor;
@@ -503,6 +595,8 @@ struct Device {
 		vOut->_r += step->_r;
 		vOut->_g += step->_g;
 		vOut->_b += step->_b;
+		vOut->_u += step->_u;
+		vOut->_v += step->_v;
 		vOut->_nx += step->_nx;
 		vOut->_ny += step->_ny;
 		vOut->_nz += step->_nz;
@@ -657,18 +751,18 @@ struct Device {
 			BresenhamDrawLine(&p3, &p1);
 			return;
 		}
-		if (_rstate == FILL_COLOR) {
+		if (_rstate == FILL_COLOR || _rstate == FILL_TEXTURE) {
 			// fill primitive
 			if (Float_Equals(p1.y, p2.y) && Float_Equals(p2.y, p3.y))
 				return;
 			if (Float_Equals(p1.x, p2.x) && Float_Equals(p2.x, p3.x))
 				return;
 			FPVertex r1(p1.x, p1.y, p1.z, v1->_r / z1, v1->_g / z1, v1->_b / z1, n1.x / z1, n1.y / z1,
-				n1.z / z1);
+				n1.z / z1, v1->_u / z1, v1->_v / z1);
 			FPVertex r2(p2.x, p2.y, p2.z, v2->_r / z2, v2->_g / z2, v2->_b / z2, n2.x / z2, n2.y / z2,
-				n2.z / z2);
+				n2.z / z2, v2->_u / z2, v2->_v / z2);
 			FPVertex r3(p3.x, p3.y, p3.z, v3->_r / z3, v3->_g / z3, v3->_b / z3, n3.x / z3, n3.y / z3,
-				n3.z / z3);
+				n3.z / z3, v3->_u / z3, v3->_v / z3);
 			// remember to store real z
 			r1._w = 1.0f / z1;
 			r2._w = 1.0f / z2;
@@ -838,6 +932,51 @@ void InitPyramid(FPVertex *vb) {
 	vb[11] = FPVertex(-1.0f, 0.0f, 1.0f, 1.0f, 0.2f, 1.0f, 0.0f, 0.707f, 0.707f);
 }
 
+void InitTexCube(FPVertex *vb, int *ib) {
+	vb[0] = FPVertex(-1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
+	vb[1] = FPVertex(-1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f);
+	vb[2] = FPVertex(1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f);
+	vb[3] = FPVertex(1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f);
+
+	vb[4] = FPVertex(-1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+	vb[5] = FPVertex(1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f);
+	vb[6] = FPVertex(1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+	vb[7] = FPVertex(-1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f);
+
+	vb[8] = FPVertex(-1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+	vb[9] = FPVertex(-1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f);
+	vb[10] = FPVertex(1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f);
+	vb[11] = FPVertex(1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+
+	vb[12] = FPVertex(-1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f);
+	vb[13] = FPVertex(1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f);
+	vb[14] = FPVertex(1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f);
+	vb[15] = FPVertex(-1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f);
+
+	vb[16] = FPVertex(-1.0f, -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	vb[17] = FPVertex(-1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	vb[18] = FPVertex(-1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	vb[19] = FPVertex(-1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
+	vb[20] = FPVertex(1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	vb[21] = FPVertex(1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	vb[22] = FPVertex(1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+	vb[23] = FPVertex(1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+
+	ib[0] = 0; ib[1] = 1; ib[2] = 2;
+	ib[3] = 0; ib[4] = 2; ib[5] = 3;
+	ib[6] = 4; ib[7] = 5; ib[8] = 6;
+	ib[9] = 4; ib[10] = 6; ib[11] = 7;
+	ib[12] = 8; ib[13] = 9; ib[14] = 10;
+	ib[15] = 8; ib[16] = 10; ib[17] = 11;
+	ib[18] = 12; ib[19] = 13; ib[20] = 14;
+	ib[21] = 12; ib[22] = 14; ib[23] = 15;
+	ib[24] = 16; ib[25] = 17; ib[26] = 18;
+	ib[27] = 16; ib[28] = 18; ib[29] = 19;
+	ib[30] = 20; ib[31] = 21; ib[32] = 22;
+	ib[33] = 20; ib[34] = 22; ib[35] = 23;
+}
+
 void InitMaterial() {
 	Material mtrl;
 	mtrl.Ambient = Color(1.0f, 1.0f, 1.0f);
@@ -855,7 +994,7 @@ void InitLight() {
 	light.Specular = Color(0.3f, 0.3f, 0.3f);
 	light.Ambient = Color(0.6f, 0.6f, 0.6f);
 	light.Direction = MLVector3(0.0f, 0.0f, 1.0f);
-	light.Position = MLVector3(0.0f, 0.0f, -5.0f);
+	light.Position = MLVector3(-1.0f, 0.0f, 1.0f);
 	light.Range = 1000.0f;
 	light.Falloff = 1.0f;
 	light.Attenuation0 = 1.0f;
@@ -867,20 +1006,29 @@ void InitLight() {
 	device->LightEnable(true);
 }
 
+void InitTexture() {
+	Texture *tex;
+	CreateTextureFromFile(L"crate.jpg", tex);
+	device->SetTexture(tex);
+}
+
 bool Setup() {
 	// create vertex buffer
-	vb = new FPVertex[12];
+	vb = new FPVertex[24];
 	// create index buffer
-	//ib = new int[36];
+	ib = new int[36];
 	// fill vertex buffer and index buffer
 	//InitCube(vb, ib);
-	InitPyramid(vb);
+	//InitPyramid(vb);
+	InitTexCube(vb, ib);
 	// init material
 	InitMaterial();
 	// init light
 	InitLight();
+	// init texture
+	InitTexture();
 	// set view matrix
-	MLVector3 pos(0.0f, 1.0f, -3.0f);
+	MLVector3 pos(0.0f, 1.0f, -4.0f);
 	MLVector3 target(0.0f, 0.0f, 0.0f);
 	MLVector3 up(0.0f, 1.0f, 0.0f);
 	MLMatrix4 V;
@@ -891,8 +1039,8 @@ bool Setup() {
 	Matrix_PerspectiveFov(&proj, PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
 	device->SetTransform(TRANSFORM_PROJECTION, &proj);
 	// set render state
-	device->SetRenderState(FILL_COLOR);
-	device->SetShadeMode(SHADE_PHONG);
+	device->SetRenderState(FILL_TEXTURE);
+	device->SetShadeMode(SHADE_GOURAUD);
 	return true;
 }
 
@@ -912,8 +1060,8 @@ bool Display(float timeDelta) {
 	// draw
 	device->SetStreamSource(vb);
 	device->SetIndices(ib);
-	//device->DrawIndexedPrimitive(0, 12);
-	device->DrawPrimitive(0, 4);
+	device->DrawIndexedPrimitive(0, 12);
+	//device->DrawPrimitive(0, 4);
 	device->Present();
 	return true;
 }

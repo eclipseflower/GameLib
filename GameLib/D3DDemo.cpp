@@ -650,7 +650,7 @@ int D3DDemo(HINSTANCE hinstance,
 	if (!D3DLib::InitD3D(hinstance, hwnd,
 		Width, Height, true, D3DDEVTYPE_HAL, &Device))
 	{
-		::MessageBox(0, L"InitD3D() - FAILED", 0, 0);
+		MessageBox(0, L"InitD3D() - FAILED", 0, 0);
 		return 0;
 	}
 
