@@ -43,6 +43,7 @@ enum SHADETYPE {
 enum SAMPLETYPE {
 	SAMPLE_POINT = 1,
 	SAMPLE_LINEAR = 2,
+	SAMPLE_MIPMAP = 4,
 };
 
 bool OpenConsoleDebug() {
@@ -167,6 +168,7 @@ struct Light {
 struct Texture {
 	int _width, _height;
 	Color **_pixelbuf;
+	Texture() {}
 	Texture(int width, int height) {
 		_width = width; _height = height;
 		_pixelbuf = new Color *[_width];
@@ -249,6 +251,10 @@ struct Device {
 	bool _lightenable;
 	// texture
 	Texture *_tex;
+	// level of details in texture for mipmaping
+	int _LOD;
+	// mipmap ratio
+	float _mipratio;
 
 	Device() {}
 
@@ -322,6 +328,7 @@ struct Device {
 
 	void SetTexture(Texture *tex) {
 		_tex = new Texture(*tex);
+		_LOD = 1;
 	}
 
 	void LightEnable(bool value) {
@@ -435,6 +442,43 @@ struct Device {
 			}
 		}
 		return 1.0f;
+	}
+
+	void GenerateTextureMipmap() {
+		int min = min(_tex->_width, _tex->_height);
+		while ((min >>= 1) > 0) {
+			_LOD++;
+		}
+		if (_LOD > 1) {
+			Texture origin = *_tex;
+			_tex = new Texture[_LOD];
+			_tex[0] = origin;
+			for (int i = 1; i < _LOD; i++) {
+				int width = _tex[i - 1]._width >> 1;
+				int height = _tex[i - 1]._height >> 1;
+				_tex[i]._width = width;
+				_tex[i]._height = height;
+				_tex[i]._pixelbuf = new Color *[width];
+				for (int i = 0; i < width; i++) {
+					_tex[i]._pixelbuf[i] = new Color[height];
+					for (int j = 0; j < height; j++) {
+						// sampling from previous:(2x, 2y), (2x+1, 2y), (2x, 2y+1), (2x+1, 2y+1)
+						Color c1 = _tex[i - 1]._pixelbuf[i << 1][j << 1];
+						Color c2 = _tex[i - 1]._pixelbuf[i << 1 + 1][j << 1];
+						Color c3 = _tex[i - 1]._pixelbuf[i << 1][j << 1 + 1];
+						Color c4 = _tex[i - 1]._pixelbuf[i << 1 + 1][j << 1 + 1];
+						_tex[i]._pixelbuf[i][j] = (c1 + c2 + c3 + c4) * 0.25f;
+					}
+				}
+			}
+		}
+	}
+
+	void GenerateMipMapRatio(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3) {
+		float triarea = (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x);
+		float texarea = _tex[0]._width * _tex[0]._height;
+		float ratio = texarea / triarea;
+
 	}
 
 	// clip
@@ -779,6 +823,14 @@ struct Device {
 			return;
 		}
 		if (_rstate == FILL_COLOR || _rstate == FILL_TEXTURE) {
+			// if texture mipmaping, generate mipmap and choose level to use
+			if (_rstate == FILL_TEXTURE && _sample == SAMPLE_MIPMAP) {
+				if(_LOD == 1)
+					GenerateTextureMipmap();
+				else {
+					GenerateMipMapRatio(&p1, &p2, &p3);
+				}
+			}
 			// fill primitive
 			if (Float_Equals(p1.y, p2.y) && Float_Equals(p2.y, p3.y))
 				return;
