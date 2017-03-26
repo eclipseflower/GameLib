@@ -444,6 +444,22 @@ struct Device {
 		return 1.0f;
 	}
 
+	Color BilinearTextureSampling(const Texture *tex, float u, float v) {
+		float x = (tex->_width - 1) * u;
+		float y = (tex->_height - 1) * v;
+		float du = x - floorf(x);
+		float dv = y - floorf(y);
+		int floorx = (int)floorf(x);
+		int floory = (int)floorf(y);
+		int ceilx = min((int)ceilf(x), tex->_width - 1);
+		int ceily = min((int)ceilf(y), tex->_height - 1);
+		Color vertexcolor = tex->_pixelbuf[floorx][floory] * du * dv +
+			tex->_pixelbuf[ceilx][floory] * (1.0f - du) * dv +
+			tex->_pixelbuf[floorx][ceily] * du * (1.0f - dv) +
+			tex->_pixelbuf[ceilx][ceily] * (1.0f - du) * (1.0f - dv);
+		return vertexcolor;
+	}
+
 	void GenerateTextureMipmap() {
 		int min = min(_tex->_width, _tex->_height);
 		while ((min >>= 1) > 0) {
@@ -459,15 +475,15 @@ struct Device {
 				_tex[i]._width = width;
 				_tex[i]._height = height;
 				_tex[i]._pixelbuf = new Color *[width];
-				for (int i = 0; i < width; i++) {
-					_tex[i]._pixelbuf[i] = new Color[height];
-					for (int j = 0; j < height; j++) {
+				for (int x = 0; x < width; x++) {
+					_tex[i]._pixelbuf[x] = new Color[height];
+					for (int y = 0; y < height; y++) {
 						// sampling from previous:(2x, 2y), (2x+1, 2y), (2x, 2y+1), (2x+1, 2y+1)
-						Color c1 = _tex[i - 1]._pixelbuf[i << 1][j << 1];
-						Color c2 = _tex[i - 1]._pixelbuf[i << 1 + 1][j << 1];
-						Color c3 = _tex[i - 1]._pixelbuf[i << 1][j << 1 + 1];
-						Color c4 = _tex[i - 1]._pixelbuf[i << 1 + 1][j << 1 + 1];
-						_tex[i]._pixelbuf[i][j] = (c1 + c2 + c3 + c4) * 0.25f;
+						Color c1 = _tex[i - 1]._pixelbuf[x << 1][y << 1];
+						Color c2 = _tex[i - 1]._pixelbuf[(x << 1) + 1][y << 1];
+						Color c3 = _tex[i - 1]._pixelbuf[x << 1][(y << 1) + 1];
+						Color c4 = _tex[i - 1]._pixelbuf[(x << 1) + 1][(y << 1) + 1];
+						_tex[i]._pixelbuf[x][y] = (c1 + c2 + c3 + c4) * 0.25f;
 					}
 				}
 			}
@@ -476,9 +492,9 @@ struct Device {
 
 	void GenerateMipMapRatio(const MLVector4 *p1, const MLVector4 *p2, const MLVector4 *p3) {
 		float triarea = (p1->y - p3->y) * (p2->x - p3->x) + (p2->y - p3->y) * (p3->x - p1->x);
-		float texarea = _tex[0]._width * _tex[0]._height;
-		float ratio = texarea / triarea;
-
+		float texarea = 1.0f * _tex[0]._width * _tex[0]._height;
+		float ratio = fabsf(texarea / triarea);
+		_mipratio = log2f(ratio) * 0.5f;
 	}
 
 	// clip
@@ -581,18 +597,15 @@ struct Device {
 						vertexcolor = _tex->_pixelbuf[x][y];
 					}
 					else if (_sample == SAMPLE_LINEAR) {
-						float x = (_tex->_width - 1) * v._u * z;
-						float y = (_tex->_height - 1) * v._v * z;
-						float du = x - floorf(x);
-						float dv = y - floorf(y);
-						int floorx = (int)floorf(x);
-						int floory = (int)floorf(y);
-						int ceilx = min((int)ceilf(x), _tex->_width - 1);
-						int ceily = min((int)ceilf(y), _tex->_height - 1);
-						vertexcolor = _tex->_pixelbuf[floorx][floory] * du * dv +
-							_tex->_pixelbuf[ceilx][floory] * (1.0f - du) * dv +
-							_tex->_pixelbuf[floorx][ceily] * du * (1.0f - dv) +
-							_tex->_pixelbuf[ceilx][ceily] * (1.0f - du) * (1.0f - dv);
+						vertexcolor = BilinearTextureSampling(_tex, v._u * z, v._v * z);
+					}
+					else if (_sample == SAMPLE_MIPMAP) {
+						int down = max(0, min((int)floorf(_mipratio), _LOD - 1));
+						int up = max(0, min((int)ceilf(_mipratio), _LOD - 1));
+						float weight = _mipratio - down;
+						Color downcolor = BilinearTextureSampling(_tex + down, v._u * z, v._v * z);
+						Color upcolor = BilinearTextureSampling(_tex + up, v._u * z, v._v * z);
+						vertexcolor = downcolor * (1.0f - weight) + upcolor * weight;
 					}
 				}
 				if (_lightenable) {
@@ -827,9 +840,7 @@ struct Device {
 			if (_rstate == FILL_TEXTURE && _sample == SAMPLE_MIPMAP) {
 				if(_LOD == 1)
 					GenerateTextureMipmap();
-				else {
-					GenerateMipMapRatio(&p1, &p2, &p3);
-				}
+				GenerateMipMapRatio(&p1, &p2, &p3);
 			}
 			// fill primitive
 			if (Float_Equals(p1.y, p2.y) && Float_Equals(p2.y, p3.y))
@@ -1087,9 +1098,9 @@ void InitLight() {
 
 void InitTexture() {
 	Texture *tex;
-	CreateTextureFromFile(L"crate.jpg", tex);
+	CreateTextureFromFile(L"biggay.jpg", tex);
 	device->SetTexture(tex);
-	device->SetSampleState(SAMPLE_LINEAR);
+	device->SetSampleState(SAMPLE_POINT);
 }
 
 bool Setup() {
