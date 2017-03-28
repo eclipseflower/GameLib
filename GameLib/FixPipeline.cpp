@@ -1098,7 +1098,7 @@ void InitLight() {
 
 void InitTexture() {
 	Texture *tex;
-	CreateTextureFromFile(L"biggay.jpg", tex);
+	CreateTextureFromFile(L"crate.jpg", tex);
 	device->SetTexture(tex);
 	device->SetSampleState(SAMPLE_POINT);
 }

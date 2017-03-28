@@ -6,9 +6,13 @@ IDirect3DIndexBuffer9 *IB = 0;
 IDirect3DVertexBuffer9 *Triangle = 0;
 IDirect3DVertexBuffer9 *Pyramid = 0;
 IDirect3DVertexBuffer9 *Quad = 0;
+IDirect3DVertexBuffer9 *BkGndQuad = 0;
+IDirect3DTexture9 *BkGndTex = 0;
 IDirect3DTexture9 *Tex = 0;
 ID3DXMesh *Objects[5] = { 0, 0, 0, 0, 0 };
 ID3DXMesh *Teapot = 0;
+D3DMATERIAL9 TeapotMtrl;
+D3DMATERIAL9 BkGndMtrl;
 D3DMATERIAL9 Mtrl[5];
 
 D3DXMATRIX ObjWorldMatrices[5];
@@ -641,6 +645,95 @@ bool TexCube_Display(float timeDelta) {
 	return true;
 }
 
+// chapter 7
+bool MtrlAlpha_Setup() {
+	TeapotMtrl = D3DLib::InitMaterial(D3DLib::RED, D3DLib::RED, D3DLib::RED, D3DLib::BLACK, 2.0f);
+	TeapotMtrl.Diffuse.a = 0.5f;
+	BkGndMtrl = D3DLib::InitMaterial(D3DLib::WHITE, D3DLib::WHITE, D3DLib::WHITE, D3DLib::BLACK, 2.0f);
+	D3DXCreateTeapot(Device, &Teapot, 0);
+	Device->CreateVertexBuffer(6 * sizeof(TexVertex), D3DUSAGE_WRITEONLY, TexVertex::FVF,
+		D3DPOOL_MANAGED, &BkGndQuad, 0);
+	TexVertex* v;
+	BkGndQuad->Lock(0, 0, (void**)&v, 0);
+	v[0] = TexVertex(-10.0f, -10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f);
+	v[1] = TexVertex(-10.0f, 10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
+	v[2] = TexVertex(10.0f, 10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f);
+
+	v[3] = TexVertex(-10.0f, -10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f);
+	v[4] = TexVertex(10.0f, 10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f);
+	v[5] = TexVertex(10.0f, -10.0f, 5.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f);
+	BkGndQuad->Unlock();
+
+	D3DLIGHT9 dir;
+	ZeroMemory(&dir, sizeof(dir));
+	dir.Type = D3DLIGHT_DIRECTIONAL;
+	dir.Diffuse = D3DLib::WHITE;
+	dir.Specular = D3DLib::WHITE * 0.2f;
+	dir.Ambient = D3DLib::WHITE * 0.6f;
+	dir.Direction = D3DXVECTOR3(0.707f, 0.0f, 0.707f);
+	Device->SetLight(0, &dir);
+	Device->LightEnable(0, true);
+	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	Device->SetRenderState(D3DRS_SPECULARENABLE, true);
+
+	D3DXCreateTextureFromFile(Device, L"crate.jpg", &BkGndTex);
+	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
+
+	Device->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
+	Device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+
+	Device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+	Device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+
+	D3DXVECTOR3 pos(0.0f, 0.0f, -3.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
+	D3DXMATRIX V;
+	D3DXMatrixLookAtLH(&V, &pos, &target, &up);
+	Device->SetTransform(D3DTS_VIEW, &V);
+
+	D3DXMATRIX proj;
+	D3DXMatrixPerspectiveFovLH(&proj, D3DX_PI * 0.5f, (float)Width / (float)Height, 1.0f, 1000.0f);
+	Device->SetTransform(D3DTS_PROJECTION, &proj);
+	return true;
+}
+
+bool MtrlAlpha_Display(float timeDelta) {
+	if (GetAsyncKeyState('W') & 0x8000f)
+		TeapotMtrl.Diffuse.a += 0.01f;
+	if (GetAsyncKeyState('S') & 0x8000f)
+		TeapotMtrl.Diffuse.a -= 0.01f;
+
+	if (TeapotMtrl.Diffuse.a > 1.0f)
+		TeapotMtrl.Diffuse.a = 1.0f;
+	if (TeapotMtrl.Diffuse.a < 0.0f)
+		TeapotMtrl.Diffuse.a = 0.0f;
+
+	Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+	Device->BeginScene();
+	D3DXMATRIX W;
+	D3DXMatrixIdentity(&W);
+	Device->SetTransform(D3DTS_WORLD, &W);
+	Device->SetFVF(TexVertex::FVF);
+	Device->SetStreamSource(0, BkGndQuad, 0, sizeof(TexVertex));
+	Device->SetMaterial(&BkGndMtrl);
+	Device->SetTexture(0, BkGndTex);
+	Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 2);
+
+	D3DXMatrixScaling(&W, 1.5f, 1.5f, 1.5f);
+	Device->SetTransform(D3DTS_WORLD, &W);
+	Device->SetMaterial(&TeapotMtrl);
+	Device->SetTexture(0, 0);
+	Teapot->DrawSubset(0);
+	Device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+
+	Device->EndScene();
+	Device->Present(0, 0, 0, 0);
+	return true;
+}
+
 int D3DDemo(HINSTANCE hinstance,
 	HINSTANCE prevInstance,
 	PSTR cmdLine,
@@ -654,8 +747,8 @@ int D3DDemo(HINSTANCE hinstance,
 		return 0;
 	}
 
-	TexCube_Setup();
-	D3DLib::EnterMsgLoop(TexCube_Display);
+	MtrlAlpha_Setup();
+	D3DLib::EnterMsgLoop(MtrlAlpha_Display);
 
 	Device->Release();
 
