@@ -172,7 +172,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="crate.jpg" />
+    <Image Include="cratewalpha.dds" />
     <Image Include="dx5_logo.bmp" />
+    <Image Include="lobbyxpos.JPG" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
